@@ -8,6 +8,15 @@ HEIS KITS — an AI-powered football/sports apparel store.
 Stack: **React 19 + Vite + Tailwind v4 + wouter** (client) · **Express + tRPC v11** (server) · **Drizzle ORM + MySQL** (Aiven) · **Gemini** for AI · **football-data.org** for live scores.
 Single process: the Express server serves the Vite app (dev) and the API at `/api/trpc`.
 
+## Deployment (Vercel)
+- **Live:** https://heis-kits.vercel.app (Vercel project `heis-kits`, account `wisdomemmanuelenang-1142`). Production.
+- **Architecture:** static SPA on Vercel's CDN (`dist/public`) + the Express app as a serverless function at `api/index.ts`, which imports the **bundled** `dist/app.js`. Routing is in `vercel.json` (`/api`, `/oauth`, `/manus-storage`, `/local-storage` → function; everything else → SPA `index.html`).
+  - Why the bundle: the project is `type:module` with extensionless imports, which Node's ESM loader can't resolve when Vercel transpiles file-by-file. `server/_core/app.ts` (createApp, **no Vite/Tailwind imports**) is esbuild-bundled to `dist/app.js` by `pnpm run build`; the function imports that single self-contained file.
+- **Redeploy:** `vercel deploy --prod` from the repo root (CLI is logged in).
+- **Env vars** are set in the Vercel project (production) — DATABASE_URL, JWT_SECRET, OAUTH_SERVER_URL, OWNER_OPEN_ID, GEMINI_API_KEY, LIVESCORE_API_KEY, ADMIN_NOTIFY_EMAIL, VITE_*. Add `PAYSTACK_*` / `RESEND_API_KEY` there to go live on payments/email. Manage via `vercel env`.
+- ⚠️ **Uploads don't persist on Vercel.** Product-image uploads write to local disk (`.local-storage`), which is read-only/ephemeral on serverless — image upload is effectively broken until storage is switched to a blob store (Forge/S3 via `server/storage.ts`, or Vercel Blob). Everything else (catalog, AI, auth, orders, payments-mock, admin, support) works.
+- Local `pnpm start` still serves everything (SPA + API) as a single long-running process — `index.ts` is the local entry; `app.ts` is shared with the serverless function.
+
 ## How to run / verify
 - Dev server (preview): use the Preview tool → `preview_start` with name `heis-kits` (config in `.claude/launch.json`). It runs `scripts/dev-launch.mjs` (sets NODE_ENV, boots `server/_core/index.ts`).
 - **After ANY server/router change you MUST restart** the preview (`preview_stop` then `preview_start`) — tsx watch doesn't reliably hot-reload tRPC procedures, and you'll get "No procedure found".
