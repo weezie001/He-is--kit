@@ -1,10 +1,13 @@
-// Vercel serverless entry. An Express app is a valid (req, res) handler, so we
-// just build the app (no port binding) and export it as the default handler.
-// Static files (the built SPA) are served by Vercel's CDN — see vercel.json.
+// Vercel serverless entry. The project is ESM with extensionless imports, which
+// Node's ESM loader can't resolve when transpiled file-by-file. So we import the
+// pre-BUNDLED server (produced by `pnpm run build` → esbuild bundles everything
+// into dist/index.js, resolving all imports). createApp() builds the Express app
+// without binding a port; an Express app is a valid (req,res) serverless handler.
 //
-// NOTE: product-image UPLOADS write to local disk (server/_core/localStorage.ts)
-// and will NOT persist on Vercel's read-only/ephemeral filesystem. Configure a
-// blob store (Forge/S3) before relying on uploads in production.
-import { createApp } from "../server/_core/index";
+// Static files (the built SPA) are served by Vercel's CDN — see vercel.json.
+// NOTE: product-image uploads write to local disk and will NOT persist on
+// Vercel's read-only/ephemeral filesystem until a blob store is configured.
+// @ts-expect-error - ../dist/index.js is generated at build time by `pnpm run build`
+import { createApp } from "../dist/index.js";
 
 export default createApp();

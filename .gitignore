@@ -118,3 +118,8 @@ client/public/__manus__/version.json
 # Local tooling logs / machine-specific settings
 .manus-logs/
 .claude/settings.local.json
+
+# Vercel
+.vercel
+
+.vercel
