@@ -14,7 +14,6 @@ import { registerStorageProxy } from "./storageProxy";
 import { registerLocalStorage } from "./localStorage";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
-import { serveStatic, setupVite } from "./vite";
 import { ENV } from "./env";
 import { getOrderByReference, finalizePaidOrder } from "../db";
 import { sendOrderConfirmationEmail, notifyAdminNewOrder } from "./mailer";
@@ -38,9 +37,14 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
   throw new Error(`No available port found starting from ${startPort}`);
 }
 
-async function startServer() {
+/**
+ * Build the Express app (middleware + API routes) WITHOUT binding a port or
+ * serving static files. Used by the serverless entry (api/index.ts on Vercel)
+ * and by startServer() for the local long-running process. Static-file serving
+ * is added by startServer() (local) / handled by the platform CDN (serverless).
+ */
+export function createApp() {
   const app = express();
-  const server = createServer(app);
   app.set("trust proxy", 1); // correct client IP behind the dev/prod proxy (rate limiting)
 
   // Security headers. CSP/COEP are disabled so Vite (dev) and external images
@@ -104,7 +108,17 @@ async function startServer() {
       createContext,
     })
   );
-  // development mode uses Vite, production mode uses static files
+
+  return app;
+}
+
+async function startServer() {
+  const app = createApp();
+  const server = createServer(app);
+
+  // Vite is dev tooling — import it lazily here so it never lands in the
+  // serverless bundle (which only needs createApp()).
+  const { serveStatic, setupVite } = await import("./vite");
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);
   } else {
@@ -123,4 +137,8 @@ async function startServer() {
   });
 }
 
-startServer().catch(console.error);
+// Only auto-start the long-running listener outside serverless. On Vercel
+// (VERCEL=1) the serverless entry api/index.ts imports createApp() instead.
+if (!process.env.VERCEL) {
+  startServer().catch(console.error);
+}
