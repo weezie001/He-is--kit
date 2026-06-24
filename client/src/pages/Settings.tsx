@@ -73,9 +73,9 @@ export default function Settings() {
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`flex items-center gap-2.5 px-4 py-2.5 text-sm font-bold uppercase tracking-wide whitespace-nowrap transition-colors ${tab === t.id ? "bg-ink text-paper" : "hover:text-signal"}`}
+                className={`flex shrink-0 items-center gap-2.5 px-4 py-2.5 text-sm font-bold uppercase tracking-wide whitespace-nowrap transition-colors ${tab === t.id ? "bg-ink text-paper" : "hover:text-signal"}`}
               >
-                <t.icon className="w-4 h-4" /> {t.label}
+                <t.icon className="w-4 h-4 shrink-0" /> {t.label}
               </button>
             ))}
           </nav>
