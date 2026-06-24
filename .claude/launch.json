@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "heis-kits",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["--import", "tsx", "scripts/dev-launch.mjs"],
+      "port": 3000,
+      "autoPort": true
+    }
+  ]
+}
