@@ -8,13 +8,15 @@ HEIS KITS — an AI-powered football/sports apparel store.
 Stack: **React 19 + Vite + Tailwind v4 + wouter** (client) · **Express + tRPC v11** (server) · **Drizzle ORM + MySQL** (Aiven) · **Gemini** for AI · **football-data.org** for live scores.
 Single process: the Express server serves the Vite app (dev) and the API at `/api/trpc`.
 
-## Deployment (Vercel)
+## Deployment (GitHub + Vercel)
+- **Source:** https://github.com/weezie001/He-is--kit (public, branch `main`). `origin` is set locally. ⚠️ `gh` is **not** authenticated in this env — pushes go through the user's machine (`git push`, via Git Credential Manager) or a token. The project has its **own** git repo (the parent `C:\Users\USER` is, separately, an accidental git repo — don't commit/push from there).
 - **Live:** https://heis-kits.vercel.app (Vercel project `heis-kits`, account `wisdomemmanuelenang-1142`). Production.
 - **Architecture:** static SPA on Vercel's CDN (`dist/public`) + the Express app as a serverless function at `api/index.ts`, which imports the **bundled** `dist/app.js`. Routing is in `vercel.json` (`/api`, `/oauth`, `/manus-storage`, `/local-storage` → function; everything else → SPA `index.html`).
   - Why the bundle: the project is `type:module` with extensionless imports, which Node's ESM loader can't resolve when Vercel transpiles file-by-file. `server/_core/app.ts` (createApp, **no Vite/Tailwind imports**) is esbuild-bundled to `dist/app.js` by `pnpm run build`; the function imports that single self-contained file.
 - **Redeploy:** `vercel deploy --prod` from the repo root (CLI is logged in).
 - **Env vars** are set in the Vercel project (production) — DATABASE_URL, JWT_SECRET, OAUTH_SERVER_URL, OWNER_OPEN_ID, GEMINI_API_KEY, LIVESCORE_API_KEY, ADMIN_NOTIFY_EMAIL, VITE_*. Add `PAYSTACK_*` / `RESEND_API_KEY` there to go live on payments/email. Manage via `vercel env`.
-- **Uploads use Vercel Blob in production.** `server/storage.ts` `storagePut` uploads to **Vercel Blob** when `BLOB_READ_WRITE_TOKEN` is set (store `heis-kits-uploads`, public; the token is in the Vercel project env, all environments), returning a public CDN URL stored on the product. Locally (no token) it falls back to local disk (`.local-storage`). This replaced the old read-only-FS `ENOENT mkdir /var/task/.local-storage` failure. (`.env.local` holds the pulled dev token and is gitignored.)
+- **Uploads use Vercel Blob in production.** `server/storage.ts` `storagePut` uploads to **Vercel Blob** when `BLOB_READ_WRITE_TOKEN` is set (store `heis-kits-uploads`, public; token is in the Vercel project env, all environments), returning a public CDN URL stored on the product. Locally (no token) it falls back to local disk (`.local-storage`). This replaced the old read-only-FS `ENOENT mkdir /var/task/.local-storage` failure. (`.env.local` holds the pulled dev token and is gitignored.)
+  - **Compression:** uploads are resized (max 1600px) + re-encoded to **WebP (~q80)** by `sharp` (`server/_core/imageProcess.ts`) before storage → a typical product image ends up ~100–300 KB (verified live: 24 KB PNG → ~2 KB WebP). sharp is dynamically imported + guarded, so an upload falls back to the original on any failure. `@img/sharp-linux-x64` is in the lockfile so it installs on Vercel.
 - Local `pnpm start` still serves everything (SPA + API) as a single long-running process — `index.ts` is the local entry; `app.ts` is shared with the serverless function.
 
 ## How to run / verify
@@ -33,20 +35,23 @@ Single process: the Express server serves the Vite app (dev) and the API at `/ap
 - **Payments** — `PAYSTACK_SECRET_KEY` + `PAYSTACK_PUBLIC_KEY`. Absent ⇒ MOCK gateway (full flow still works via `/checkout/mock-pay`). Set them to go live; also set the Paystack dashboard webhook to `<base>/api/payments/webhook`. See `server/_core/payments.ts`.
 - **Email** — `RESEND_API_KEY` + `MAIL_FROM` (verified sender). Absent ⇒ mailer logs emails to the server console (dev). See `server/_core/mailer.ts`.
 - **`ADMIN_NOTIFY_EMAIL`** = `Shekwolohaggai@gmail.com` (in `.env`) — the business inbox that receives new-order + new-support-message notifications. (Only actually delivered once `RESEND_API_KEY` is set; logged to console until then.)
+- **`BLOB_READ_WRITE_TOKEN`** — auto-provisioned by the linked Vercel Blob store `heis-kits-uploads` (set in Vercel for all envs; mirrored to gitignored `.env.local` for local use). Enables Blob uploads; absent ⇒ local-disk fallback.
+- **OpenAI is NOT configured.** Virtual try-on stays on Gemini. `gpt-image-1` was evaluated (key valid, org verified) but the OpenAI account billing wasn't funded, so it was **not wired**. To switch later: add `OPENAI_API_KEY` + an OpenAI adapter in `server/_core/imageGeneration.ts` (store outputs in Blob).
 - Optional `APP_BASE_URL` — overrides the request-derived origin for payment callbacks / reset links.
 
 ## ⚠️ Gotchas (these cost real time — read them)
 1. **Gemini free tier = 20 requests/min.** Chat/search/try-on share it; under rapid testing it 429s and recovers in ~45s. Not a bug.
-2. **Gemini image generation (Virtual Try-On) needs billing enabled** — free tier limit is literally 0 for `gemini-2.5-flash-image`. Try-on is built + gated with a friendly "needs billing" message.
+2. **Gemini image generation (Virtual Try-On) needs billing enabled** — free tier limit is literally 0 for `gemini-2.5-flash-image`. Try-on is built + gated with a friendly "needs billing" message. (OpenAI `gpt-image-1` was evaluated as an alternative — works, org verified — but billing unfunded, so try-on stays on Gemini for now; fund Gemini or wire OpenAI to enable it.)
 3. **Preview screenshots time out** (external Unsplash/product images + a dead analytics script keep the network busy). Use `preview_eval` DOM/computed-style checks and open in the real browser instead. `preview_click`+immediate `preview_eval` can race React — add a ~300ms wait.
 4. **WebM alpha (transparent hover video) does NOT encode** in this ffmpeg build (`alphaextract` confirms no alpha). That feature was reverted to static images — don't retry it here.
 5. **Dark mode**: token-flip in `.dark` (index.css). Intentionally-black sections use `.surface-dark` (fixed dark, identical in light mode). Buttons/field/tag use `var(--ink)/var(--paper)` (theme-robust). The runtime toggle works in REAL browsers; the preview headless browser has a `var()` re-resolution quirk that makes existing elements look stuck — verify dark mode by loading with `localStorage.theme='dark'` then reload, or just trust it.
 6. **Catalog category** comes from `?category=` via wouter `useSearch()` (not `useLocation`). Nav has a categories dropdown.
 7. Product images are 2048² on white, autocropped into `client/public/products/<category>/`. Body-type mannequins (size advisor) are torso-cropped into `client/public/bodytypes/{male,female}/` (the source grids were anatomical/nude — cropped to torso on purpose).
+8. **Aiven DB can power off (free trial).** If the service powers off, its host stops resolving (**DNS NXDOMAIN**) → the static site still loads but **every DB endpoint 500s** ("Failed query … from products"), and local connects fail with `ENOTFOUND`. This happened once and was real, not a code bug. **Recover:** power the service back on in the Aiven console (console.aiven.io) — data persists, host/credentials are unchanged, **no code/env change needed**, and the live site self-recovers once DNS propagates (~few min). Diagnose fast with a DoH lookup of the DB host (`Status:3` = NXDOMAIN = service down) vs a known host. To stop recurrence, move off the trial (paid plan / non-expiring MySQL).
 
 ## Design system (hype / Nike SNKRS)
 - Fonts: **Anton** (display, `.display` class) + **Archivo** (body). Palette: white/`#0a0a0b` ink + **blaze `#ff2e1f`** accent. Tokens in `client/src/index.css` (`:root` + `.dark` + `@theme inline`).
-- Reusable: `components/tech` (Marker/TechLabel/Tag…), `Layout` (nav + footer + SearchOverlay), `ProductCard`, `Reveal` (scroll-in), `Skeleton`, utility classes `.btn`, `.tag`, `.field`, `.surface-dark`, `.marquee`.
+- Reusable: `components/tech` (Marker/TechLabel/Tag…), `Layout` (nav + footer; `SearchOverlay` exists but is no longer wired — nav search routes to `/catalog?focus=search`), `ProductCard`, `Reveal` (scroll-in), `Skeleton`, utility classes `.btn`, `.tag`, `.field`, `.surface-dark`, `.marquee`.
 
 ## Current state — DONE
 - Full storefront redesigned (Home/hero, Catalog w/ dropdown filter, Product detail, Cart, Checkout, Search-as-overlay, Size Advisor w/ photoreal mannequins + cm/ft & kg/lb, Expert Chat w/ image upload + product recs, Profile).
@@ -61,7 +66,7 @@ Single process: the Express server serves the Vite app (dev) and the API at `/ap
 - **Customer support chat**: `/support` (customer) ↔ `/admin/support` (admin inbox). One thread per user, polling every 5s, unread badges. `support` tRPC router (customer = protectedProcedure, admin = adminProcedure); `supportMessages` table (sender enum user|admin, readByUser/readByAdmin). Linked in storefront nav + footer.
 - **Flexible categories**: categories are derived from live product data, NOT a fixed list. `products.categories` query + `client/src/lib/categories.ts` (`labelizeCategory`, `useCategories`). Nav dropdown, catalog pills, admin tabs all dynamic; admin product form category is free-text (normalised to a slug) with a datalist of existing ones.
 - **Hero**: standard full-height (min-h ~88vh desktop). **Search**: nav search button → `/catalog?focus=search`; Catalog has a search panel in front of "Shop all" + live text filter + category pills (old `SearchOverlay` is no longer wired in `Layout`).
-- **Images**: product images can be uploaded in admin → stored via `server/storage.ts` `storagePut`. Locally (no Forge env) they land in `.local-storage/` (gitignored) and are served at `/local-storage/...`. Schema: `products.imageUrl` (primary) + `products.imageUrls` (full gallery JSON).
+- **Images**: admin uploads → `storagePut` (`server/storage.ts`) → **Vercel Blob** in prod (public CDN URL), `.local-storage/` in dev; auto-compressed to WebP via `sharp` (see Deployment). Schema: `products.imageUrl` (primary) + `products.imageUrls` (full gallery JSON). Catalog category pills show **labels only** (counts + the "N products" header were removed on request; prices kept).
 - Security: `auth.me` now strips `passwordHash` via `sanitizeUser` (server/routers.ts).
 - **Production hardening (top-5)**:
   - **Payments**: `payments` router (initialize→redirect→verify) + Paystack adapter/mock (`server/_core/payments.ts`); checkout reworked (`Checkout.tsx` → `/checkout/verify`, `/checkout/mock-pay`); webhook at `/api/payments/webhook` (raw-body HMAC verify + amount check). Order is PENDING until paid; **amount verified** against total before finalizing; **idempotent** finalize via atomic status claim (webhook+callback race-safe, emails/stock once).
@@ -77,7 +82,12 @@ Single process: the Express server serves the Vite app (dev) and the API at `/ap
 - To grant admin to any email/password account: `node --import tsx scripts/make-admin.mjs <email>` (add `--demote` to revoke). Role is read fresh from the DB each request, so a page reload picks it up — no re-login needed.
 
 ## NEXT TASK → (open)
-All requested features done & verified (typecheck green; charts, category tabs, order previews, support round-trip, multi-image upload all tested live). Possible follow-ups: product-detail gallery using `imageUrls`, drag-to-reorder images, support email notifications, admin pagination/sorting if the catalog grows.
+Live on GitHub + Vercel; uploads on Blob + WebP-compressed; all features tested live (typecheck green). No active task queued. Likely follow-ups, in priority order:
+1. **Move the DB off the Aiven free trial** (paid/non-expiring) so the site can't go down when the trial powers off (see Gotcha #8).
+2. **Fund Gemini image billing** (or wire OpenAI `gpt-image-1`) to enable virtual try-on.
+3. Set live `PAYSTACK_*` + `RESEND_API_KEY` in Vercel to turn payments/email from mock/console → real.
+4. Product-detail gallery using `imageUrls`; drag-to-reorder images; admin pagination/sorting as the catalog grows.
+- Pushing to GitHub from this agent env needs the user's machine/token (gh unauthenticated).
 
 ## Tracking docs
 - `PROGRESS.md` — phase checklist (somewhat behind this handoff).
