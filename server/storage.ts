@@ -40,7 +40,23 @@ export async function storagePut(
   data: Buffer | Uint8Array | string,
   contentType = "application/octet-stream",
 ): Promise<{ key: string; url: string }> {
-  // Dev fallback: no Forge backend → write to local disk.
+  // 1. Vercel Blob — durable object storage that works on serverless. The
+  //    local-disk fallback below can't write on Vercel's read-only filesystem
+  //    (that's the `ENOENT mkdir /var/task/.local-storage` error). Returns a
+  //    public CDN URL we store directly on the product.
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const { put } = await import("@vercel/blob");
+    const body = typeof data === "string" ? data : Buffer.from(data as Uint8Array);
+    const blob = await put(normalizeKey(relKey), body, {
+      access: "public",
+      contentType,
+      addRandomSuffix: true,
+      token: process.env.BLOB_READ_WRITE_TOKEN,
+    });
+    return { key: blob.pathname, url: blob.url };
+  }
+
+  // 2. Dev fallback: no Forge/Blob backend → write to local disk.
   if (!forgeStorageConfigured()) {
     return localStoragePut(relKey, data, contentType);
   }
