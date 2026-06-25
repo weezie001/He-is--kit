@@ -50,11 +50,8 @@ export default function Catalog() {
       <section className="border-b border-ink">
         <div className="container py-12 lg:py-16">
           <TechLabel>The full lineup</TechLabel>
-          <div className="flex flex-wrap items-end justify-between gap-6 mt-3">
+          <div className="mt-3">
             <h1 className="display text-[clamp(3rem,8vw,7rem)]">Shop all</h1>
-            <p className="mono text-sm font-bold mb-2">
-              {filtered.length} <span className="text-muted-foreground font-medium">product{filtered.length === 1 ? "" : "s"}</span>
-            </p>
           </div>
 
           {/* search panel — right in front of the heading */}
@@ -80,7 +77,7 @@ export default function Catalog() {
             <FilterPill active={!selectedCategory} onClick={() => pickCategory(undefined)}>All</FilterPill>
             {categories.map(c => (
               <FilterPill key={c.value} active={selectedCategory === c.value} onClick={() => pickCategory(c.value)}>
-                {c.label} <span className="opacity-50">{c.count}</span>
+                {c.label}
               </FilterPill>
             ))}
           </div>
