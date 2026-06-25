@@ -12,6 +12,7 @@ import { hashPassword, verifyPassword } from "./_core/password";
 import { storagePut } from "./storage";
 import { sendPasswordResetEmail, sendOrderConfirmationEmail, notifyAdminNewOrder, notifyAdminNewSupportMessage } from "./_core/mailer";
 import { paymentsProvider, initializePayment, verifyPayment } from "./_core/payments";
+import { compressImage } from "./_core/imageProcess";
 import { ENV } from "./_core/env";
 import { nanoid } from "nanoid";
 import crypto from "crypto";
@@ -972,7 +973,13 @@ Reply as JSON: { "reply": string, "productIds": number[] } where productIds are 
           if (buffer.length > 10 * 1024 * 1024) throw new TRPCError({ code: "BAD_REQUEST", message: "Image too large (max 10MB)" });
           const base = (input.filename || "product")
             .replace(/\.[^.]+$/, "").replace(/[^a-z0-9._-]+/gi, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "product";
-          const { url } = await storagePut(`products/uploads/${base}.${ext}`, buffer, input.mimeType);
+          // Compress/resize → WebP to save storage; falls back to the original on failure.
+          const compressed = await compressImage(buffer, input.mimeType);
+          const { url } = await storagePut(
+            `products/uploads/${base}.${compressed?.ext ?? ext}`,
+            compressed?.buffer ?? buffer,
+            compressed?.contentType ?? input.mimeType,
+          );
           return { url };
         }),
     }),
