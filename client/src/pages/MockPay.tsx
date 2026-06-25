@@ -43,7 +43,7 @@ export default function MockPay() {
             <button onClick={() => finish("failed")} className="btn btn-outline w-full"><X className="w-4 h-4" /> Cancel / fail payment</button>
           </div>
         </div>
-        <p className="text-center text-xs text-muted-foreground mt-4">In production, add <span className="mono">PAYSTACK_SECRET_KEY</span> to replace this with the real checkout.</p>
+        <p className="text-center text-xs text-muted-foreground mt-4">In production, add <span className="mono">FLUTTERWAVE_SECRET_KEY</span> to replace this with the real checkout.</p>
       </div>
     </Layout>
   );

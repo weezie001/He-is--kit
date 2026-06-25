@@ -1146,7 +1146,14 @@ Reply as JSON: { "reply": string, "productIds": number[] } where productIds are 
   // Runs against Paystack when keys are set, else a built-in mock gateway.
   // ----------------------------------------------------------------
   payments: router({
-    config: publicProcedure.query(() => ({ provider: paymentsProvider(), publicKey: ENV.paystackPublicKey || null })),
+    config: publicProcedure.query(() => {
+      const provider = paymentsProvider();
+      const publicKey =
+        provider === "flutterwave" ? ENV.flutterwavePublicKey || null
+        : provider === "paystack" ? ENV.paystackPublicKey || null
+        : null;
+      return { provider, publicKey };
+    }),
 
     initialize: protectedProcedure
       .input(z.object({
@@ -1182,16 +1189,16 @@ Reply as JSON: { "reply": string, "productIds": number[] } where productIds are 
           items,
           totalAmount: total.toFixed(2),
           shippingAddress: input.shippingAddress,
-          paymentMethod: paymentsProvider() === "paystack" ? "paystack" : "mock",
+          paymentMethod: paymentsProvider(),
           paymentReference: reference,
         });
 
         const origin = getOrigin(ctx);
         const init = await initializePayment({
-          amountKobo: Math.round(total * 100),
+          amount: total, // major units (Naira); the provider converts as needed
           email: input.shippingAddress.email || ctx.user.email || "",
+          name: input.shippingAddress.name || ctx.user.name || undefined,
           reference,
-          callbackUrl: `${origin}/checkout/verify?reference=${encodeURIComponent(reference)}`,
           origin,
           metadata: { orderId: id, userId: ctx.user.id },
         });
@@ -1217,9 +1224,11 @@ Reply as JSON: { "reply": string, "productIds": number[] } where productIds are 
           const v = await verifyPayment(input.reference);
           status = v.status;
           // Confirm the amount actually captured matches what we charged.
+          // Compare in minor units (×100) so float maths stays exact.
           if (status === "success" && typeof v.amount === "number") {
-            const expectedKobo = Math.round(Number(order.totalAmount) * 100);
-            if (v.amount < expectedKobo) {
+            const expectedMinor = Math.round(Number(order.totalAmount) * 100);
+            const paidMinor = Math.round(v.amount * 100);
+            if (paidMinor < expectedMinor) {
               await db.markOrderPaymentFailed(order.id);
               throw new TRPCError({ code: "BAD_REQUEST", message: "Payment amount mismatch" });
             }

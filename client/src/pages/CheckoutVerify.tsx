@@ -8,7 +8,8 @@ import { TechLabel } from "@/components/tech";
 export default function CheckoutVerify() {
   const search = useSearch();
   const params = new URLSearchParams(search);
-  const reference = params.get("reference") || "";
+  // `reference` for Paystack/mock; Flutterwave redirects back with `tx_ref`.
+  const reference = params.get("reference") || params.get("tx_ref") || "";
   const outcome = (params.get("outcome") as "success" | "failed" | null) || undefined;
 
   const utils = trpc.useUtils();

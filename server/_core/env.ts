@@ -22,7 +22,15 @@ export const ENV = {
   // Business inbox that receives client notifications (new orders, support).
   adminNotifyEmail: process.env.ADMIN_NOTIFY_EMAIL ?? "Shekwolohaggai@gmail.com",
 
-  // Payments. Without a Paystack secret the gateway runs in MOCK mode.
+  // Payments. Provider is chosen by which keys are present:
+  //   Flutterwave (preferred) → Paystack → MOCK (built-in simulated gateway).
+  // Flutterwave (test keys start FLWSECK_TEST-… / FLWPUBK_TEST-…).
+  flutterwaveSecretKey: process.env.FLUTTERWAVE_SECRET_KEY ?? "",
+  flutterwavePublicKey: process.env.FLUTTERWAVE_PUBLIC_KEY ?? "",
+  // Webhook "Secret hash" you set in the Flutterwave dashboard; sent back as the
+  // `verif-hash` header on every webhook so we can authenticate it.
+  flutterwaveSecretHash: process.env.FLUTTERWAVE_SECRET_HASH ?? "",
+  // Paystack (kept as a fallback provider).
   paystackSecretKey: process.env.PAYSTACK_SECRET_KEY ?? "",
   paystackPublicKey: process.env.PAYSTACK_PUBLIC_KEY ?? "",
 

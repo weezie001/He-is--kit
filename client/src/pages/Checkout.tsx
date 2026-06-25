@@ -79,6 +79,10 @@ export default function Checkout() {
   };
 
   const isMock = payConfig?.provider === "mock";
+  const providerLabel =
+    payConfig?.provider === "flutterwave" ? "Flutterwave"
+    : payConfig?.provider === "paystack" ? "Paystack"
+    : "Demo gateway";
 
   return (
     <Layout>
@@ -121,12 +125,12 @@ export default function Checkout() {
               <div className="border border-ink/15 p-5">
                 <div className="flex items-center gap-2 mb-1">
                   <ShieldCheck className="w-5 h-5 text-signal" />
-                  <span className="font-bold">{isMock ? "Demo payment gateway" : "Secure payment — Paystack"}</span>
+                  <span className="font-bold">{isMock ? "Demo payment gateway" : `Secure payment — ${providerLabel}`}</span>
                 </div>
                 <p className="text-sm text-muted-foreground font-medium">
                   {isMock
-                    ? "No real payment provider is configured, so you'll be taken to a simulated gateway to complete the order. Add Paystack keys to go live."
-                    : "You'll be redirected to Paystack to pay securely by card, bank, USSD or transfer, then returned here."}
+                    ? "No real payment provider is configured, so you'll be taken to a simulated gateway to complete the order. Add payment keys to go live."
+                    : `You'll be redirected to ${providerLabel} to pay securely by card, bank, USSD or transfer, then returned here.`}
                 </p>
                 <div className="mt-3 text-sm">
                   <span className="tech-label">Shipping to</span>

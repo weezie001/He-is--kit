@@ -15,6 +15,7 @@ import { createContext } from "./context";
 import { ENV } from "./env";
 import { getOrderByReference, finalizePaidOrder } from "../db";
 import { sendOrderConfirmationEmail, notifyAdminNewOrder } from "./mailer";
+import { paymentsProvider } from "./payments";
 
 /**
  * Build the Express app (middleware + API routes) WITHOUT binding a port or
@@ -41,19 +42,45 @@ export function createApp() {
   app.use("/api/payments/webhook", rateLimit({ windowMs: 60_000, max: 60, standardHeaders: true, legacyHeaders: false }));
   app.post("/api/payments/webhook", express.raw({ type: "*/*" }), async (req, res) => {
     try {
-      if (!ENV.paystackSecretKey) return res.status(200).json({ ok: true }); // mock mode
+      const provider = paymentsProvider();
+      if (provider === "mock") return res.status(200).json({ ok: true }); // no real gateway configured
       const raw = req.body as Buffer;
-      const expected = crypto.createHmac("sha512", ENV.paystackSecretKey).update(raw).digest("hex");
-      if (req.headers["x-paystack-signature"] !== expected) return res.status(401).json({ ok: false }); // generic — no recon hints
-      const event = JSON.parse(raw.toString("utf8"));
-      if (event?.event === "charge.success" && event?.data?.reference) {
-        const order = await getOrderByReference(event.data.reference);
+
+      // Authenticate + extract (reference, paidMinor, succeeded) per provider.
+      // Amounts are normalised to MINOR units (kobo) for the mismatch check.
+      let reference: string | null = null;
+      let paidMinor: number | null = null;
+      let succeeded = false;
+
+      if (provider === "flutterwave") {
+        // Flutterwave authenticates with a static "Secret hash" you set in the
+        // dashboard, echoed back as the `verif-hash` header (not an HMAC).
+        if (!ENV.flutterwaveSecretHash || req.headers["verif-hash"] !== ENV.flutterwaveSecretHash) {
+          return res.status(401).json({ ok: false });
+        }
+        const event = JSON.parse(raw.toString("utf8"));
+        const d = event?.data || {};
+        reference = d.tx_ref || null;
+        succeeded = event?.event === "charge.completed" && d.status === "successful";
+        paidMinor = typeof d.amount === "number" ? Math.round(d.amount * 100) : null; // major → minor
+      } else {
+        // Paystack — HMAC-SHA512 of the raw body keyed by the secret.
+        const expected = crypto.createHmac("sha512", ENV.paystackSecretKey).update(raw).digest("hex");
+        if (req.headers["x-paystack-signature"] !== expected) return res.status(401).json({ ok: false }); // generic — no recon hints
+        const event = JSON.parse(raw.toString("utf8"));
+        reference = event?.data?.reference || null;
+        succeeded = event?.event === "charge.success" && !!reference;
+        paidMinor = typeof event?.data?.amount === "number" ? event.data.amount : null; // already kobo
+      }
+
+      if (succeeded && reference) {
+        const order = await getOrderByReference(reference);
         if (order) {
-          const expectedKobo = Math.round(Number(order.totalAmount) * 100);
-          if (typeof event.data.amount === "number" && event.data.amount < expectedKobo) {
-            console.warn("[webhook] amount mismatch", event.data.amount, "<", expectedKobo);
+          const expectedMinor = Math.round(Number(order.totalAmount) * 100);
+          if (paidMinor !== null && paidMinor < expectedMinor) {
+            console.warn("[webhook] amount mismatch", paidMinor, "<", expectedMinor);
           } else {
-            const { order: finalized, transitioned } = await finalizePaidOrder(order.id, event.data.reference);
+            const { order: finalized, transitioned } = await finalizePaidOrder(order.id, reference);
             if (transitioned) {
               const addr: any = finalized?.shippingAddress || {};
               if (addr.email) { try { await sendOrderConfirmationEmail(addr.email, finalized); } catch { /* logged */ } }
