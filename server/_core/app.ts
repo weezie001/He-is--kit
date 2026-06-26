@@ -14,7 +14,7 @@ import { registerLocalStorage } from "./localStorage";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { ENV } from "./env";
-import { getOrderByReference, finalizePaidOrder } from "../db";
+import { getOrderByReference, finalizePaidOrder, getProducts } from "../db";
 import { sendOrderConfirmationEmail, notifyAdminNewOrder } from "./mailer";
 import { paymentsProvider } from "./payments";
 
@@ -37,6 +37,22 @@ export function createApp() {
     crossOriginEmbedderPolicy: false,
     crossOriginResourcePolicy: { policy: "cross-origin" },
   }));
+
+  // SEO: dynamic sitemap (homepage + key pages + every product). Routed to this
+  // function via vercel.json so crawlers get fresh product URLs.
+  app.get("/sitemap.xml", async (_req, res) => {
+    const base = (ENV.appBaseUrl || "https://heiskits.com").replace(/\/+$/, "");
+    const staticPaths = ["/", "/catalog", "/livescore", "/size-advisor", "/chat", "/support", "/terms", "/privacy", "/returns", "/shipping"];
+    let productUrls = "";
+    try {
+      const products = await getProducts(undefined, 1000);
+      productUrls = (products as any[]).map(p => `<url><loc>${base}/product/${p.id}</loc><changefreq>weekly</changefreq></url>`).join("");
+    } catch { /* still serve the static paths if the DB is unavailable */ }
+    const urls = staticPaths.map(p => `<url><loc>${base}${p}</loc><changefreq>${p === "/" ? "daily" : "weekly"}</changefreq></url>`).join("");
+    res.set("Content-Type", "application/xml").send(
+      `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}${productUrls}</urlset>`,
+    );
+  });
 
   // Payment webhook — must read the RAW body to verify the signature, so it is
   // registered before express.json(). Rate-limited (it's a public endpoint).
