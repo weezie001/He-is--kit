@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { ArrowRight, Ruler } from "lucide-react";
 import Layout from "@/components/Layout";
 import Pagination from "@/components/Pagination";
+import ProductCard from "@/components/ProductCard";
 import { BODY_TYPES, Gender, BodyType } from "@/lib/bodyTypes";
 import { TechLabel } from "@/components/tech";
 
@@ -19,6 +20,7 @@ function fitNote(bias: number) {
 
 export default function SizeAdvisor() {
   const utils = trpc.useUtils();
+  const { data: catalog } = trpc.products.list.useQuery({ limit: 12 });
   const [gender, setGender] = useState<Gender>("male");
   const [bodyType, setBodyType] = useState<BodyType | null>(null);
   const [heightUnit, setHeightUnit] = useState<"cm" | "ftin">("cm");
@@ -169,6 +171,27 @@ export default function SizeAdvisor() {
           )}
         </div>
       </div>
+
+      {/* Catalog — shop straight from the size advisor */}
+      {(catalog as any[] | undefined)?.length ? (
+        <section className="container pb-16">
+          <div className="flex items-end justify-between gap-3 mb-6 border-t border-ink/10 pt-10">
+            <div>
+              <TechLabel>Now shop</TechLabel>
+              <h2 className="display text-[clamp(2rem,5vw,3.5rem)] mt-1">
+                {result ? <>Kits in your size <span className="text-signal">{result.size}</span></> : "Shop the catalog"}
+              </h2>
+            </div>
+            <Link href="/catalog" className="btn btn-outline hidden sm:inline-flex">All products <ArrowRight className="w-4 h-4" /></Link>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+            {(catalog as any[]).slice(0, 8).map(p => <ProductCard key={p.id} product={p} />)}
+          </div>
+          <div className="flex justify-center mt-8 sm:hidden">
+            <Link href="/catalog" className="btn btn-outline">All products <ArrowRight className="w-4 h-4" /></Link>
+          </div>
+        </section>
+      ) : null}
     </Layout>
   );
 }

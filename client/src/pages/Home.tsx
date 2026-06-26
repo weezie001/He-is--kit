@@ -29,9 +29,9 @@ export default function Home() {
       {/* ============ HERO ============ */}
       <section className="relative overflow-hidden border-b-2 border-ink grid-bg">
         <div className="container">
-          <div className="grid lg:grid-cols-[1fr_1.15fr] gap-6 lg:gap-10 items-stretch min-h-[82vh] lg:min-h-[88vh]">
-            {/* copy — slides in from the left and settles */}
-            <div className="anim-slide-left relative z-10 flex flex-col justify-center py-10 lg:py-16">
+          <div className="grid lg:grid-cols-[1fr_1.15fr] gap-2 lg:gap-10 items-stretch lg:min-h-[88vh]">
+            {/* copy — slides in from the left and settles (below the image on mobile) */}
+            <div className="anim-slide-left order-2 lg:order-1 relative z-10 flex flex-col justify-center pb-10 lg:py-16">
               <div className="flex items-center gap-3 mb-5">
                 <Tag variant="signal">New Drop — WC2026</Tag>
                 <TechLabel className="hidden sm:block">Worldcup Collection</TechLabel>
@@ -55,16 +55,17 @@ export default function Home() {
               </div>
             </div>
 
-            {/* athlete cutout — slides in from the right and settles */}
-            <div className="anim-slide-right relative flex items-end justify-center min-h-[52vh] lg:min-h-0">
+            {/* athlete cutout — slides in from the right; on mobile it sits ABOVE
+                the copy, cropped tighter to the figure so there's no big gap over the head */}
+            <div className="anim-slide-right order-1 lg:order-2 relative flex items-end justify-center pt-6 lg:pt-0 min-h-[38vh] lg:min-h-0">
               <div aria-hidden className="absolute left-1/2 bottom-[4%] -translate-x-1/2 w-full max-w-[860px] aspect-square rounded-full bg-signal/15 blur-[90px]" />
-              <span aria-hidden className="display absolute inset-x-0 bottom-[3%] flex justify-center text-center leading-[0.72] text-[clamp(7rem,27vw,20rem)] text-ink/[0.09] select-none pointer-events-none">
+              <span aria-hidden className="display absolute inset-x-0 bottom-[3%] flex justify-center text-center leading-[0.72] text-[clamp(5rem,22vw,20rem)] text-ink/[0.09] select-none pointer-events-none">
                 GEAR<br />UP
               </span>
               <img
                 src="/hero-athlete-cut.png"
                 alt="Athlete surrounded by HEIS KITS gear"
-                className="relative z-10 w-full h-full object-contain object-bottom max-h-[58vh] lg:max-h-[80vh] drop-shadow-[0_25px_45px_rgba(0,0,0,0.18)]"
+                className="relative z-10 w-full h-full object-contain object-bottom max-h-[44vh] lg:max-h-[80vh] drop-shadow-[0_25px_45px_rgba(0,0,0,0.18)]"
               />
             </div>
           </div>
@@ -87,20 +88,21 @@ export default function Home() {
               virtual try-on to natural-language search. Built in, not bolted on.
             </p>
           </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* compact 2×2 grid, ~half the original card size */}
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 max-w-2xl">
             {AI_MODULES.map((m, i) => (
               <Reveal key={m.code} delay={i * 70} className="h-full">
               <Link href={m.href} className="group bg-card text-ink overflow-hidden flex flex-col hover:-translate-y-1 transition-transform h-full">
-                <div className="aspect-[5/4] bg-secondary overflow-hidden border-b border-ink/10">
+                <div className="aspect-[16/10] bg-secondary overflow-hidden border-b border-ink/10">
                   <img src={m.img} alt={m.title} loading="lazy" className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500" />
                 </div>
-                <div className="p-5 flex-1 flex flex-col">
+                <div className="p-3.5 flex-1 flex flex-col">
                   <div className="flex items-center gap-2">
-                    <m.icon className="w-5 h-5 text-signal" />
-                    <h3 className="display text-xl">{m.title}</h3>
+                    <m.icon className="w-4 h-4 text-signal shrink-0" />
+                    <h3 className="display text-base leading-tight">{m.title}</h3>
                   </div>
-                  <p className="text-sm text-muted-foreground mt-2 flex-1 font-medium">{m.desc}</p>
-                  <span className="tech-label text-signal inline-flex items-center gap-1 mt-3">Launch <ArrowUpRight className="w-3 h-3" /></span>
+                  <p className="text-xs text-muted-foreground mt-1.5 flex-1 font-medium hidden sm:block">{m.desc}</p>
+                  <span className="tech-label text-signal inline-flex items-center gap-1 mt-2">Launch <ArrowUpRight className="w-3 h-3" /></span>
                 </div>
               </Link>
               </Reveal>

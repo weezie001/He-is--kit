@@ -57,6 +57,13 @@
       "when": 1782337551587,
       "tag": "0007_redundant_valkyrie",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1782512082854,
+      "tag": "0008_hot_korath",
+      "breakpoints": true
     }
   ]
 }

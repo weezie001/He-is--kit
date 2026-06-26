@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useRoute, useSearch } from "wouter";
-import { ArrowRight, ArrowUpRight, Eye, EyeOff, Loader2 } from "lucide-react";
+import { ArrowUpRight, Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
-import { getLoginUrl } from "@/const";
 
 const TAGS = ["AI TRY-ON", "300+ ATHLETES", "FW2016 DROP", "FREE RETURNS"];
 
@@ -151,14 +150,10 @@ export default function Login() {
           </div>
 
           {providers?.google && (
-            <button onClick={() => (window.location.href = "/api/auth/google")} className="btn btn-outline w-full mb-3">
+            <button onClick={() => (window.location.href = "/api/auth/google")} className="btn btn-outline w-full">
               <GoogleIcon /> Continue with Google
             </button>
           )}
-
-          <button onClick={() => (window.location.href = getLoginUrl())} className="btn btn-outline w-full">
-            Continue with HEIS ID <ArrowRight className="w-4 h-4" />
-          </button>
 
           <p className="text-sm text-muted-foreground font-medium mt-6 text-center">
             {signup ? "Already have an account? " : "New to HEIS KITS? "}

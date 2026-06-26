@@ -1,7 +1,7 @@
-import { eq, and, inArray, notInArray, desc, sql } from "drizzle-orm";
+import { eq, and, inArray, notInArray, desc, gt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
-import { InsertUser, InsertProduct, users, products, cartItems, orders, chatMessages, searchHistory, reviews, supportMessages, passwordResetTokens } from "../drizzle/schema";
+import { InsertUser, InsertProduct, users, products, cartItems, orders, chatMessages, searchHistory, reviews, supportMessages, passwordResetTokens, matchHistory } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { buildMysqlPoolConfig } from "./_core/dbConfig";
 
@@ -60,7 +60,11 @@ export async function upsertUser(user: InsertUser): Promise<void> {
     if (user.role !== undefined) {
       values.role = user.role;
       updateSet.role = user.role;
-    } else if (user.openId === ENV.ownerOpenId) {
+    } else if (
+      user.openId === ENV.ownerOpenId ||
+      (!!user.email && !!ENV.ownerEmail && user.email.toLowerCase() === ENV.ownerEmail)
+    ) {
+      // The store owner (by openId or the configured OWNER_EMAIL) is always admin.
       values.role = 'admin';
       updateSet.role = 'admin';
     }
@@ -329,6 +333,27 @@ export async function getChatHistory(userId: number, limit = 50) {
   if (!db) return [];
 
   return db.select().from(chatMessages).where(eq(chatMessages.userId, userId)).orderBy(desc(chatMessages.createdAt)).limit(limit);
+}
+
+// --- Match history: persist finished matches ~12h for the Livescore History ---
+export async function upsertFinishedMatches(matches: any[]) {
+  const db = await getDb();
+  if (!db || !matches?.length) return;
+  for (const m of matches) {
+    try {
+      // onDuplicateKeyUpdate refreshes data but NOT finishedAt, so the 12h
+      // window counts from when the match was first seen finished.
+      await db.insert(matchHistory).values({ id: String(m.id), data: m }).onDuplicateKeyUpdate({ set: { data: m } });
+    } catch { /* ignore individual upsert failures */ }
+  }
+}
+
+export async function getRecentFinishedMatches(hours = 12) {
+  const db = await getDb();
+  if (!db) return [];
+  const cutoff = new Date(Date.now() - hours * 3600 * 1000);
+  const rows = await db.select().from(matchHistory).where(gt(matchHistory.finishedAt, cutoff)).orderBy(desc(matchHistory.finishedAt)).limit(40);
+  return rows.map((r: any) => r.data);
 }
 
 export async function saveSearchQuery(userId: number | undefined, query: string, results: number[], clicked: number[] = []) {

@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { fileToBase64 } from "@/lib/image";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { Send, Loader, Sparkles, ImagePlus, X, ArrowUpRight } from "lucide-react";
+import { Send, Loader, Sparkles, ImagePlus, X, ArrowUpRight, Plus } from "lucide-react";
 import { toast } from "sonner";
 import Layout from "@/components/Layout";
 import { TechLabel } from "@/components/tech";
@@ -22,10 +22,15 @@ export default function Chat() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [pendingImage, setPendingImage] = useState<{ b64Json: string; mimeType: string; preview: string } | null>(null);
+  const [cleared, setCleared] = useState(false); // true after "New chat" — don't reload saved history
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const { data: chatHistory } = trpc.chat.history.useQuery(undefined, { enabled: isAuthenticated });
+
+  // Start a fresh conversation on screen. Past messages stay saved (still in the
+  // DB for your records and admin insights) and return on the next visit.
+  const newChat = () => { setMessages([]); setInput(""); setPendingImage(null); setCleared(true); };
 
   const sendMessage = trpc.chat.send.useMutation({
     onSuccess: (data: any) => setMessages(prev => [...prev, { role: "assistant", content: data.message, products: data.products }]),
@@ -33,8 +38,8 @@ export default function Chat() {
   });
 
   useEffect(() => {
-    if (chatHistory && messages.length === 0) setMessages(chatHistory.map((m: any) => ({ role: m.role, content: m.content })));
-  }, [chatHistory]);
+    if (!cleared && chatHistory && messages.length === 0) setMessages(chatHistory.map((m: any) => ({ role: m.role, content: m.content })));
+  }, [chatHistory, cleared]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
   if (!isAuthenticated) {
@@ -73,10 +78,17 @@ export default function Chat() {
   return (
     <Layout footer={false}>
       <section className="border-b border-ink">
-        <div className="container py-8">
-          <div className="flex items-center gap-2 mb-1"><Sparkles className="w-4 h-4 text-signal" /><TechLabel ink>HEIS Expert</TechLabel></div>
-          <h1 className="display text-4xl">Ask the expert</h1>
-          <p className="text-sm text-muted-foreground font-medium mt-1">Football-savvy AI — upload a photo or ask for recommendations.</p>
+        <div className="container py-8 flex items-end justify-between gap-4 flex-wrap">
+          <div>
+            <div className="flex items-center gap-2 mb-1"><Sparkles className="w-4 h-4 text-signal" /><TechLabel ink>HEIS Expert</TechLabel></div>
+            <h1 className="display text-4xl">Ask the expert</h1>
+            <p className="text-sm text-muted-foreground font-medium mt-1">Football-savvy AI — upload a photo or ask for recommendations.</p>
+          </div>
+          {messages.length > 0 && (
+            <button onClick={newChat} className="btn btn-outline shrink-0">
+              <Plus className="w-4 h-4" /> New chat
+            </button>
+          )}
         </div>
       </section>
 

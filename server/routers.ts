@@ -528,6 +528,9 @@ export const appRouter = router({
   matches: router({
     ticker: publicProcedure.query(() => getMatchTicker()),
 
+    // Completed matches from the last 12 hours (persisted History section).
+    history: publicProcedure.query(() => db.getRecentFinishedMatches(12)),
+
     // Recommend the club jersey of every team playing today.
     // Uses Gemini to map team → kit colour, with a heuristic fallback.
     recommended: publicProcedure.query(async () => {

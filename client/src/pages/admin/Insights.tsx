@@ -1,4 +1,4 @@
-import { Loader2, Search, MessageCircle, TrendingUp } from "lucide-react";
+import { Loader2, Search, MessageCircle, TrendingUp, User } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AdminLayout from "@/components/AdminLayout";
@@ -8,12 +8,28 @@ const when = (d: any) => {
   const t = d ? new Date(d) : null;
   return t && !isNaN(t.getTime()) ? t.toLocaleString(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
 };
-const who = (r: any) => r.userName || r.userEmail || (r.userId ? `User #${r.userId}` : "Guest");
+const whoName = (r: any) => r.userName || r.userEmail || (r.userId ? `User #${r.userId}` : "Guest");
+
+type Bucket = { key: string; name: string; email: string | null; chats: any[]; searches: any[]; last: number };
 
 export default function AdminInsights() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
   const { data, isLoading } = trpc.admin.aiInsights.useQuery(undefined, { enabled: isAdmin });
+
+  // Group chat + search activity by customer so each reads as one person's history.
+  const buckets = new Map<string, Bucket>();
+  const touch = (r: any): Bucket => {
+    const key = r.userId != null ? `u${r.userId}` : "guest";
+    if (!buckets.has(key)) buckets.set(key, { key, name: whoName(r), email: r.userEmail || null, chats: [], searches: [], last: 0 });
+    const b = buckets.get(key)!;
+    const ts = new Date(r.createdAt).getTime() || 0;
+    if (ts > b.last) b.last = ts;
+    return b;
+  };
+  for (const c of (data?.chats || [])) touch(c).chats.push(c);
+  for (const s of (data?.searches || [])) touch(s).searches.push(s);
+  const customers = Array.from(buckets.values()).sort((a, b) => b.last - a.last);
 
   return (
     <AdminLayout title="AI Insights" description="What customers ask, search for, and get shown — use it to improve the shop.">
@@ -51,56 +67,68 @@ export default function AdminInsights() {
             )}
           </section>
 
-          <div className="grid lg:grid-cols-2 gap-6">
-            {/* Recent searches */}
-            <section>
-              <div className="flex items-center gap-2 mb-4">
-                <Search className="w-5 h-5 text-signal" />
-                <h2 className="display text-2xl">Recent searches</h2>
-              </div>
-              <div className="border border-ink/15 bg-card divide-y divide-ink/10 max-h-[520px] overflow-y-auto">
-                {data.searches.length === 0 ? (
-                  <p className="p-5 text-muted-foreground font-medium text-sm">No searches yet.</p>
-                ) : (
-                  data.searches.slice(0, 60).map((s: any) => (
-                    <div key={s.id} className="p-4">
-                      <p className="font-bold text-sm break-words">{s.query}</p>
-                      <div className="flex items-center justify-between gap-2 mt-1">
-                        <span className="tech-label truncate">{who(s)}</span>
-                        <span className="tech-label shrink-0">{when(s.createdAt)}</span>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </section>
+          {/* Activity grouped by customer */}
+          <section>
+            <div className="flex items-center gap-2 mb-4">
+              <User className="w-5 h-5 text-signal" />
+              <h2 className="display text-2xl">Activity by customer</h2>
+              <span className="tech-label">· {customers.length}</span>
+            </div>
 
-            {/* Recent expert-chat */}
-            <section>
-              <div className="flex items-center gap-2 mb-4">
-                <MessageCircle className="w-5 h-5 text-signal" />
-                <h2 className="display text-2xl">Expert-chat activity</h2>
-              </div>
-              <div className="border border-ink/15 bg-card divide-y divide-ink/10 max-h-[520px] overflow-y-auto">
-                {data.chats.length === 0 ? (
-                  <p className="p-5 text-muted-foreground font-medium text-sm">No chat activity yet.</p>
-                ) : (
-                  data.chats.slice(0, 80).map((c: any) => (
-                    <div key={c.id} className="p-4">
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 ${c.role === "assistant" ? "bg-signal text-white" : "bg-secondary text-ink"}`}>
-                          {c.role === "assistant" ? "AI" : "Customer"}
-                        </span>
-                        <span className="tech-label shrink-0">{when(c.createdAt)}</span>
+            {customers.length === 0 ? (
+              <div className="border border-ink/15 bg-card p-6 text-muted-foreground font-medium text-sm">No chat or search activity yet.</div>
+            ) : (
+              <div className="space-y-4">
+                {customers.map(cust => (
+                  <div key={cust.key} className="border border-ink/15 bg-card">
+                    {/* customer header */}
+                    <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-ink/10 bg-secondary/40">
+                      <div className="min-w-0">
+                        <div className="font-bold text-sm truncate">{cust.name}</div>
+                        {cust.email && <div className="tech-label truncate normal-case tracking-normal">{cust.email}</div>}
                       </div>
-                      <p className="text-sm break-words line-clamp-4">{c.content}</p>
-                      <span className="tech-label mt-1 inline-block truncate">{who(c)}</span>
+                      <div className="tech-label shrink-0 text-right">
+                        {cust.chats.length} msg{cust.chats.length === 1 ? "" : "s"} · {cust.searches.length} search{cust.searches.length === 1 ? "" : "es"}
+                      </div>
                     </div>
-                  ))
-                )}
+
+                    <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-ink/10">
+                      {/* searches */}
+                      <div className="p-4">
+                        <div className="flex items-center gap-1.5 mb-2"><Search className="w-3.5 h-3.5 text-muted-foreground" /><span className="tech-label">Searches</span></div>
+                        {cust.searches.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">No searches.</p>
+                        ) : (
+                          <div className="flex flex-wrap gap-1.5">
+                            {cust.searches.slice(0, 20).map((s: any) => (
+                              <span key={s.id} title={when(s.createdAt)} className="inline-block text-xs font-medium bg-secondary px-2 py-1 max-w-full truncate">{s.query}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* chat conversation (oldest → newest) */}
+                      <div className="p-4">
+                        <div className="flex items-center gap-1.5 mb-2"><MessageCircle className="w-3.5 h-3.5 text-muted-foreground" /><span className="tech-label">Expert chat</span></div>
+                        {cust.chats.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">No chat.</p>
+                        ) : (
+                          <div className="space-y-2 max-h-72 overflow-y-auto">
+                            {cust.chats.slice().reverse().map((c: any) => (
+                              <div key={c.id} className={`text-xs ${c.role === "assistant" ? "" : "font-medium"}`}>
+                                <span className={`text-[9px] font-bold uppercase tracking-wide mr-1.5 px-1 py-0.5 ${c.role === "assistant" ? "bg-signal text-white" : "bg-ink text-paper"}`}>{c.role === "assistant" ? "AI" : "Cust"}</span>
+                                <span className="break-words">{c.content}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-            </section>
-          </div>
+            )}
+          </section>
         </div>
       )}
     </AdminLayout>

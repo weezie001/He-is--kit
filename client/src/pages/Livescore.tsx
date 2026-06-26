@@ -81,10 +81,14 @@ export default function Livescore() {
   });
   const matches = (data || []) as Match[];
   const live = matches.filter(m => m.status === "LIVE");
-  const results = matches.filter(m => m.status === "FT");
   const fixtures = matches.filter(m => m.status === "UPCOMING");
 
+  // Completed matches persist ~12h in a dedicated History section.
+  const { data: historyData } = trpc.matches.history.useQuery(undefined, { staleTime: 5 * 60_000 });
+  const completed = (historyData || []) as Match[];
+
   const { data: recommended } = trpc.matches.recommended.useQuery(undefined, { staleTime: 5 * 60_000 });
+  const nothing = live.length === 0 && fixtures.length === 0 && completed.length === 0;
 
   return (
     <Layout>
@@ -109,7 +113,7 @@ export default function Livescore() {
       </section>
 
       <div className="container py-12">
-        {matches.length === 0 ? (
+        {nothing ? (
           <div className="text-center py-20">
             <h2 className="display text-3xl mb-2">No matches right now</h2>
             <p className="text-muted-foreground font-medium">Check back on match day for live scores and fixtures.</p>
@@ -117,8 +121,8 @@ export default function Livescore() {
         ) : (
           <>
             <MatchTable title="Live now" matches={live} accent />
-            <MatchTable title="Results" matches={results} />
             <MatchTable title="Fixtures" matches={fixtures} />
+            <MatchTable title="Completed · last 12h" matches={completed} />
           </>
         )}
 

@@ -13,6 +13,7 @@ const LEAGUES: { id: string; code: string }[] = [
 ];
 
 import { ENV } from "./env";
+import * as db from "../db";
 
 const BASE = "https://www.thesportsdb.com/api/v1/json/3";
 const TTL_MS = 5 * 60 * 1000;
@@ -163,6 +164,10 @@ export async function getMatchTicker(): Promise<Match[]> {
     // Refresh more aggressively when something is live.
     cacheTtl = data.some(m => m.status === "LIVE") ? 45_000 : TTL_MS;
     cache = { ts: Date.now(), data };
+    // Persist finished matches so the Livescore "History" survives ~12h even
+    // after the live API stops returning them.
+    const finished = data.filter(m => m.status === "FT");
+    if (finished.length) { try { await db.upsertFinishedMatches(finished); } catch { /* non-fatal */ } }
   }
   return data.length > 0 ? data : cache?.data ?? [];
 }

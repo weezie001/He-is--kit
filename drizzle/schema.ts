@@ -183,3 +183,15 @@ export const passwordResetTokens = mysqlTable("passwordResetTokens", {
 });
 
 export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
+
+/**
+ * Recently finished matches — kept ~12h so the Livescore "History" section
+ * persists completed games even after the live API stops returning them.
+ */
+export const matchHistory = mysqlTable("matchHistory", {
+  id: varchar("id", { length: 64 }).primaryKey(), // provider match id
+  data: json("data").notNull(),                   // the Match object
+  finishedAt: timestamp("finishedAt").defaultNow().notNull(),
+});
+
+export type MatchHistory = typeof matchHistory.$inferSelect;
