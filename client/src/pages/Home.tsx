@@ -74,22 +74,22 @@ export default function Home() {
 
       {/* ============ SHOP FEATURES (AI modules) — right after the hero ============ */}
       <section className="surface-dark">
-        <div className="container py-16 lg:py-24">
-          <div className="flex items-center gap-3 mb-12">
+        <div className="container py-12 lg:py-16">
+          <div className="flex items-center gap-3 mb-5">
             <Sparkles className="w-5 h-5 text-signal" />
             <span className="tech-label text-signal">AI-Powered Experience</span>
           </div>
-          <div className="grid lg:grid-cols-2 gap-10 items-center mb-14">
-            <h2 className="display text-[clamp(2.5rem,6vw,5.5rem)]">
-              Smarter<br /><span className="text-signal">than</span> the<br />average shop
+          <div className="grid lg:grid-cols-2 gap-4 lg:gap-8 items-center mb-8">
+            <h2 className="display text-[clamp(2.2rem,5vw,4rem)]">
+              Smarter <span className="text-signal">than</span> the average shop
             </h2>
-            <p className="text-white/70 text-lg font-medium max-w-md">
+            <p className="text-white/70 font-medium max-w-md">
               Four AI tools that make finding your perfect kit effortless — from
               virtual try-on to natural-language search. Built in, not bolted on.
             </p>
           </div>
-          {/* compact 2×2 grid, ~half the original card size */}
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 max-w-2xl">
+          {/* single row of 4 on desktop, 2×2 on mobile */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {AI_MODULES.map((m, i) => (
               <Reveal key={m.code} delay={i * 70} className="h-full">
               <Link href={m.href} className="group bg-card text-ink overflow-hidden flex flex-col hover:-translate-y-1 transition-transform h-full">
