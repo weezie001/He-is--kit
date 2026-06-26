@@ -33,6 +33,8 @@ export async function sendMail(mail: Mail): Promise<{ delivered: boolean; provid
 
 // ---- Templates --------------------------------------------------------------
 const naira = (v: any) => `₦${Number(v || 0).toLocaleString("en-NG", { maximumFractionDigits: 0 })}`;
+// Public site URL for email CTA links (request origin isn't available here).
+const appUrl = () => (ENV.appBaseUrl || "https://heis-kits.vercel.app").replace(/\/$/, "");
 
 const shell = (title: string, body: string) => `
   <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#0a0a0b">
@@ -73,6 +75,59 @@ export function notifyAdminNewSupportMessage(opts: { name?: string | null; email
     <blockquote style="border-left:3px solid #ff2e1f;padding:4px 0 4px 12px;margin:12px 0;font-size:15px;color:#0a0a0b">${esc(opts.content)}</blockquote>
     <p style="font-size:13px;margin-top:16px">Reply from the admin Support inbox.</p>`);
   return sendMail({ to: ENV.adminNotifyEmail, subject: "New customer support message", html });
+}
+
+// ---- New-user lifecycle -----------------------------------------------------
+export function sendWelcomeEmail(to: string, name?: string | null) {
+  const first = String(name || "").trim().split(/\s+/)[0] || "there";
+  const html = shell(
+    `Welcome to HEIS KITS, ${esc(first)} 👟`,
+    `<p style="font-size:15px;line-height:1.6">Your account is live. You're all set to shop premium football & sports kits — built for performance, made for the love of the game.</p>
+     <ul style="font-size:14px;line-height:1.8;color:#0a0a0b;padding-left:18px;margin:16px 0">
+       <li>AI virtual try-on & a smart size advisor</li>
+       <li>Saved carts and faster checkout</li>
+       <li>Live order tracking from confirmation to delivery</li>
+     </ul>
+     <p style="margin:24px 0"><a href="${esc(appUrl())}/catalog" style="background:#ff2e1f;color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;display:inline-block">Start shopping</a></p>
+     <p style="font-size:13px;color:#6f6f76">Need a hand? Just reply to this email or use in-app support.</p>`,
+  );
+  return sendMail({ to, subject: "Welcome to HEIS KITS 👟", html });
+}
+
+export function notifyAdminNewSignup(user: { name?: string | null; email?: string | null; method?: string | null }) {
+  const html = shell("New customer sign-up 🎉", `
+    <p style="font-size:16px;line-height:1.6"><b>${esc(user.name) || "New customer"}</b></p>
+    <p style="font-size:14px;color:#6f6f76">Email: ${esc(user.email) || "—"}</p>
+    <p style="font-size:14px;color:#6f6f76">Method: ${esc(user.method) || "email"}</p>
+    <p style="font-size:13px;margin-top:16px">View them in the admin Customers dashboard.</p>`);
+  return sendMail({ to: ENV.adminNotifyEmail, subject: `New sign-up: ${user.email || "customer"}`, html });
+}
+
+// ---- Order lifecycle --------------------------------------------------------
+export function sendOrderShippedEmail(to: string, order: any) {
+  const track = [
+    order?.carrier ? `<p style="font-size:14px;margin:4px 0"><b>Carrier:</b> ${esc(order.carrier)}</p>` : "",
+    order?.trackingNumber ? `<p style="font-size:14px;margin:4px 0"><b>Tracking #:</b> ${esc(order.trackingNumber)}</p>` : "",
+    order?.estimatedDelivery ? `<p style="font-size:14px;margin:4px 0"><b>Estimated delivery:</b> ${esc(order.estimatedDelivery)}</p>` : "",
+  ].join("");
+  const html = shell(
+    "Your order is on its way 🚚",
+    `<p style="font-size:15px;line-height:1.6">Good news — order <b>${esc(order?.orderNumber)}</b> has shipped.</p>
+     ${track || `<p style="font-size:14px;color:#6f6f76">Tracking details will follow shortly.</p>`}
+     <p style="margin:24px 0"><a href="${esc(appUrl())}/profile" style="background:#ff2e1f;color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;display:inline-block">Track your order</a></p>`,
+  );
+  return sendMail({ to, subject: `Your HEIS KITS order ${order?.orderNumber || ""} has shipped 🚚`, html });
+}
+
+export function sendOrderCancelledEmail(to: string, order: any) {
+  const paid = order?.paymentStatus === "completed";
+  const html = shell(
+    "Order cancelled",
+    `<p style="font-size:15px;line-height:1.6">Your order <b>${esc(order?.orderNumber)}</b> (${naira(order?.totalAmount)}) has been cancelled.</p>
+     <p style="font-size:14px;color:#6f6f76">${paid ? "If you were charged, your refund is being processed and will appear on your original payment method." : "You have not been charged."}</p>
+     <p style="margin:24px 0"><a href="${esc(appUrl())}/catalog" style="background:#0a0a0b;color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;display:inline-block">Continue shopping</a></p>`,
+  );
+  return sendMail({ to, subject: `Your HEIS KITS order ${order?.orderNumber || ""} was cancelled`, html });
 }
 
 export function sendOrderConfirmationEmail(to: string, order: any) {

@@ -8,6 +8,7 @@ import rateLimit from "express-rate-limit";
 import crypto from "crypto";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
+import { registerGoogleAuthRoutes } from "./googleOAuth";
 import { registerStorageProxy } from "./storageProxy";
 import { registerLocalStorage } from "./localStorage";
 import { appRouter } from "../routers";
@@ -106,6 +107,7 @@ export function createApp() {
   registerStorageProxy(app);
   registerLocalStorage(app);
   registerOAuthRoutes(app);
+  registerGoogleAuthRoutes(app);
   // tRPC API
   app.use(
     "/api/trpc",

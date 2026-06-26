@@ -34,6 +34,11 @@ export const ENV = {
   paystackSecretKey: process.env.PAYSTACK_SECRET_KEY ?? "",
   paystackPublicKey: process.env.PAYSTACK_PUBLIC_KEY ?? "",
 
+  // Google OAuth (standalone "Continue with Google"). Absent ⇒ the button is
+  // hidden and /api/auth/google redirects back with an error.
+  googleClientId: process.env.GOOGLE_CLIENT_ID ?? "",
+  googleClientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+
   // Optional explicit public base URL (otherwise derived from the request).
   appBaseUrl: process.env.APP_BASE_URL ?? "",
 };

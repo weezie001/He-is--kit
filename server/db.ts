@@ -85,7 +85,10 @@ export async function upsertUser(user: InsertUser): Promise<void> {
 export async function getUserByEmail(email: string) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  // orderBy(id) makes the result deterministic if duplicate-email rows ever
+  // exist (prefer the earliest/original account) — login, password reset and
+  // OAuth linking all resolve through here.
+  const result = await db.select().from(users).where(eq(users.email, email)).orderBy(users.id).limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
 
@@ -302,7 +305,8 @@ export async function cancelOrder(userId: number, orderId: number) {
     if (affected && order.paymentStatus === "completed") {
       await restoreStock(tx, (Array.isArray(order.items) ? order.items : []));
     }
-    return (await tx.select().from(orders).where(eq(orders.id, orderId)).limit(1))[0];
+    const updated = (await tx.select().from(orders).where(eq(orders.id, orderId)).limit(1))[0];
+    return { order: updated, cancelled: affected > 0 };
   });
 }
 
@@ -482,7 +486,13 @@ export async function adminUpdateOrder(orderId: number, patch: AdminOrderPatch) 
     if (before && patch.status === "cancelled" && before.status !== "cancelled" && before.paymentStatus === "completed") {
       await restoreStock(tx, (Array.isArray(before.items) ? before.items : []));
     }
-    return (await tx.select().from(orders).where(eq(orders.id, orderId)).limit(1))[0];
+    const updated = (await tx.select().from(orders).where(eq(orders.id, orderId)).limit(1))[0];
+    // Resolve the customer's account email so the router can notify them (the
+    // admin mutation has no customer ctx; shippingAddress.email may be absent).
+    const customer = before?.userId
+      ? (await tx.select({ email: users.email }).from(users).where(eq(users.id, before.userId)).limit(1))[0]
+      : null;
+    return { order: updated, prevStatus: before?.status ?? null, customerEmail: customer?.email ?? null };
   });
 }
 

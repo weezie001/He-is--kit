@@ -10,7 +10,7 @@ import { getMatchTicker } from "./_core/matches";
 import { sdk } from "./_core/sdk";
 import { hashPassword, verifyPassword } from "./_core/password";
 import { storagePut } from "./storage";
-import { sendPasswordResetEmail, sendOrderConfirmationEmail, notifyAdminNewOrder, notifyAdminNewSupportMessage } from "./_core/mailer";
+import { sendPasswordResetEmail, sendOrderConfirmationEmail, notifyAdminNewOrder, notifyAdminNewSupportMessage, sendWelcomeEmail, notifyAdminNewSignup, sendOrderShippedEmail, sendOrderCancelledEmail } from "./_core/mailer";
 import { paymentsProvider, initializePayment, verifyPayment } from "./_core/payments";
 import { compressImage } from "./_core/imageProcess";
 import { ENV } from "./_core/env";
@@ -179,6 +179,10 @@ export const appRouter = router({
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => sanitizeUser(opts.ctx.user)),
+    // Which social sign-in options are configured (drives the client buttons).
+    // Require BOTH id and secret — the /api/auth/google route needs both, so
+    // gating on id alone would show a button that dead-ends on an error.
+    providers: publicProcedure.query(() => ({ google: !!ENV.googleClientId && !!ENV.googleClientSecret })),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
@@ -207,6 +211,12 @@ export const appRouter = router({
 
         const token = await sdk.createSessionToken(openId, { name: user.name || "", expiresInMs: ONE_YEAR_MS });
         setSessionCookie(ctx, token);
+        // Welcome the new customer + notify the business inbox, in parallel
+        // (non-fatal; the mailer logs to console when RESEND_API_KEY is unset).
+        await Promise.allSettled([
+          sendWelcomeEmail(email, user.name || input.name),
+          notifyAdminNewSignup({ name: user.name || input.name, email, method: "email" }),
+        ]);
         return { success: true };
       }),
 
@@ -429,7 +439,12 @@ export const appRouter = router({
     cancel: protectedProcedure
       .input(z.object({ orderId: z.number() }))
       .mutation(async ({ ctx, input }) => {
-        await db.cancelOrder(ctx.user.id, input.orderId);
+        const { order, cancelled } = await db.cancelOrder(ctx.user.id, input.orderId);
+        // The atomic claim matches 0 rows if the order was already delivered or
+        // cancelled — report that instead of a false success toast.
+        if (!cancelled) throw new TRPCError({ code: "CONFLICT", message: "This order can no longer be cancelled." });
+        const to = ctx.user.email || (order?.shippingAddress as any)?.email;
+        if (to) { try { await sendOrderCancelledEmail(to, order); } catch { /* logged */ } }
         return { success: true };
       }),
   }),
@@ -1039,7 +1054,17 @@ Reply as JSON: { "reply": string, "productIds": number[] } where productIds are 
         }))
         .mutation(async ({ input }) => {
           const { orderId, ...patch } = input;
-          const order = await db.adminUpdateOrder(orderId, patch);
+          const { order, prevStatus, customerEmail } = await db.adminUpdateOrder(orderId, patch);
+          // Notify the customer on first transition. Prefer the account email,
+          // fall back to the shipping address (legacy/imported orders).
+          const to = customerEmail || (order?.shippingAddress as any)?.email;
+          if (to) {
+            if (patch.status === "shipped" && prevStatus !== "shipped") {
+              try { await sendOrderShippedEmail(to, order); } catch { /* logged */ }
+            } else if (patch.status === "cancelled" && prevStatus !== "cancelled") {
+              try { await sendOrderCancelledEmail(to, order); } catch { /* logged */ }
+            }
+          }
           return { success: true, order };
         }),
     }),
