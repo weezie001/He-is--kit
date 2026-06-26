@@ -1104,7 +1104,9 @@ Reply as JSON: { "reply": string, "productIds": number[] } where productIds are 
     }),
 
     // Analytics for the dashboard charts: daily sales (14d) + revenue by category.
-    analytics: adminProcedure.query(async () => {
+    analytics: adminProcedure
+      .input(z.object({ days: z.number().int().min(1).max(365) }).optional())
+      .query(async ({ input }) => {
       const [allOrders, allProducts] = await Promise.all([db.adminGetAllOrders(), db.adminGetAllProducts()]);
       const live = (allOrders as any[]).filter(o => o.status !== "cancelled");
       const pmap = new Map((allProducts as any[]).map(p => [p.id, p]));
@@ -1113,7 +1115,7 @@ Reply as JSON: { "reply": string, "productIds": number[] } where productIds are 
       const dayKey = (d: Date) =>
         `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-      const DAYS = 14;
+      const DAYS = input?.days ?? 14;
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const buckets: { date: string; label: string; revenue: number; orders: number }[] = [];
@@ -1144,6 +1146,27 @@ Reply as JSON: { "reply": string, "productIds": number[] } where productIds are 
         .sort((a, b) => b.revenue - a.revenue);
 
       return { salesByDay: buckets, categoryRevenue };
+    }),
+
+    // AI insights — recent expert-chat messages, search queries, and the most
+    // surfaced products. Helps the team see what customers ask & search for.
+    aiInsights: adminProcedure.query(async () => {
+      const [chats, searches, allProducts] = await Promise.all([
+        db.adminGetRecentChats(120),
+        db.adminGetRecentSearches(300),
+        db.adminGetAllProducts(),
+      ]);
+      const pmap = new Map((allProducts as any[]).map(p => [p.id, p]));
+      const counts = new Map<number, number>();
+      for (const s of (searches as any[])) {
+        for (const id of (Array.isArray(s.results) ? s.results : [])) counts.set(id, (counts.get(id) || 0) + 1);
+      }
+      const topProducts = Array.from(counts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 12)
+        .map(([id, count]) => ({ count, product: pmap.get(id) || null }))
+        .filter(x => x.product);
+      return { chats, searches, topProducts };
     }),
   }),
 

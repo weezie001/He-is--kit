@@ -22,6 +22,7 @@ import AdminProducts from "./pages/admin/Products";
 import AdminOrders from "./pages/admin/Orders";
 import AdminCustomers from "./pages/admin/Customers";
 import AdminSupport from "./pages/admin/Support";
+import AdminInsights from "./pages/admin/Insights";
 import Support from "./pages/Support";
 import CheckoutVerify from "./pages/CheckoutVerify";
 import MockPay from "./pages/MockPay";
@@ -34,6 +35,11 @@ import CookieConsent from "./components/CookieConsent";
 // don't change wouter's pathname, so this leaves anchor jumps untouched.
 function ScrollToTop() {
   const [location] = useLocation();
+  // Stop the browser from restoring the previous scroll position on
+  // navigation/back-forward, which would override our scroll-to-top.
+  useEffect(() => {
+    if ("scrollRestoration" in window.history) window.history.scrollRestoration = "manual";
+  }, []);
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [location]);
@@ -62,6 +68,7 @@ function Router() {
       <Route path="/admin/orders" component={AdminOrders} />
       <Route path="/admin/customers" component={AdminCustomers} />
       <Route path="/admin/support" component={AdminSupport} />
+      <Route path="/admin/insights" component={AdminInsights} />
       <Route path="/login" component={Login} />
       <Route path="/signup" component={Login} />
       <Route path="/reset-password" component={ResetPassword} />

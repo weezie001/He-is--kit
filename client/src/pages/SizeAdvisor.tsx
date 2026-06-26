@@ -4,6 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { ArrowRight, Ruler } from "lucide-react";
 import Layout from "@/components/Layout";
+import Pagination from "@/components/Pagination";
 import { BODY_TYPES, Gender, BodyType } from "@/lib/bodyTypes";
 import { TechLabel } from "@/components/tech";
 
@@ -29,11 +30,15 @@ export default function SizeAdvisor() {
   const [lb, setLb] = useState("");
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [typePage, setTypePage] = useState(0);
 
   const heightCm = heightUnit === "cm" ? Number(cm) : (Number(ft) * 12 + Number(inch || 0)) * 2.54;
   const weightKg = weightUnit === "kg" ? Number(kg) : Number(lb) * 0.453592;
 
   const types = BODY_TYPES[gender];
+  const TYPES_PER = 10;
+  const typePages = Math.ceil(types.length / TYPES_PER);
+  const shownTypes = types.slice(typePage * TYPES_PER, typePage * TYPES_PER + TYPES_PER);
 
   const getRecommendation = async () => {
     if (!heightCm || !weightKg) return toast.error("Enter your height and weight");
@@ -82,10 +87,10 @@ export default function SizeAdvisor() {
         <div className="lg:col-span-2">
           <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
             <TechLabel ink>1 · Choose your body type</TechLabel>
-            <Toggle options={[["male", "Male"], ["female", "Female"]]} value={gender} onChange={(g: Gender) => { setGender(g); setBodyType(null); }} />
+            <Toggle options={[["male", "Male"], ["female", "Female"]]} value={gender} onChange={(g: Gender) => { setGender(g); setBodyType(null); setTypePage(0); }} />
           </div>
           <div className="grid grid-cols-3 sm:grid-cols-5 gap-2.5">
-            {types.map(t => {
+            {shownTypes.map(t => {
               const active = bodyType?.id === t.id;
               return (
                 <button
@@ -102,6 +107,7 @@ export default function SizeAdvisor() {
               );
             })}
           </div>
+          <Pagination page={typePage} pages={typePages} onPage={setTypePage} />
         </div>
 
         {/* right: measurements + result */}

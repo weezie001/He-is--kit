@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Package, Receipt, Users, Headphones, ArrowUpRight, LogOut, ShieldAlert, Loader2 } from "lucide-react";
+import { LayoutDashboard, Package, Receipt, Users, Headphones, Sparkles, ArrowUpRight, LogOut, ShieldAlert, Loader2 } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import Layout from "@/components/Layout";
@@ -11,6 +11,7 @@ const NAV = [
   { label: "Orders", href: "/admin/orders", icon: Receipt },
   { label: "Customers", href: "/admin/customers", icon: Users },
   { label: "Support", href: "/admin/support", icon: Headphones },
+  { label: "AI Insights", href: "/admin/insights", icon: Sparkles },
 ];
 
 function isActive(location: string, href: string, exact?: boolean) {

@@ -5,6 +5,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { toast } from "sonner";
 import Layout from "@/components/Layout";
 import WishlistRow from "@/components/WishlistRow";
+import ProductCard from "@/components/ProductCard";
 import { TechLabel } from "@/components/tech";
 
 const SHIPPING = 2500;
@@ -12,6 +13,7 @@ const SHIPPING = 2500;
 export default function Cart() {
   const { isAuthenticated } = useAuth();
   const { data: cartItems, isLoading, refetch } = trpc.cart.list.useQuery(undefined, { enabled: isAuthenticated });
+  const { data: moreProducts } = trpc.products.list.useQuery({ limit: 12 });
 
   const removeFromCart = trpc.cart.remove.useMutation({
     onSuccess: () => { refetch(); toast.success("Item removed"); },
@@ -46,6 +48,9 @@ export default function Cart() {
 
   const subtotal = cartItems.reduce((sum: number, item: any) => sum + Number(item.product?.price || 0) * item.quantity, 0);
   const total = subtotal + SHIPPING;
+
+  const cartIds = new Set(cartItems.map((i: any) => i.product?.id));
+  const moreForYou = (moreProducts as any[] || []).filter(p => !cartIds.has(p.id)).slice(0, 8);
 
   return (
     <Layout>
@@ -98,6 +103,16 @@ export default function Cart() {
           <Link href="/catalog" className="btn btn-outline w-full mt-3">Keep shopping</Link>
         </div>
       </div>
+
+      {/* More for you */}
+      {moreForYou.length > 0 && (
+        <section className="container pb-4">
+          <h2 className="display text-3xl mb-6">More for you</h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+            {moreForYou.map((p: any) => <ProductCard key={p.id} product={p} />)}
+          </div>
+        </section>
+      )}
 
       <div className="pb-16"><WishlistRow /></div>
     </Layout>

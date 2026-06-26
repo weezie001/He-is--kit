@@ -34,7 +34,7 @@ export async function sendMail(mail: Mail): Promise<{ delivered: boolean; provid
 // ---- Templates --------------------------------------------------------------
 const naira = (v: any) => `₦${Number(v || 0).toLocaleString("en-NG", { maximumFractionDigits: 0 })}`;
 // Public site URL for email CTA links (request origin isn't available here).
-const appUrl = () => (ENV.appBaseUrl || "https://heis-kits.vercel.app").replace(/\/$/, "");
+const appUrl = () => (ENV.appBaseUrl || "https://heiskits.com").replace(/\/$/, "");
 
 const shell = (title: string, body: string) => `
   <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#0a0a0b">

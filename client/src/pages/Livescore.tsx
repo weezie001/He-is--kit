@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Radio, RefreshCw } from "lucide-react";
 import Layout from "@/components/Layout";
 import ProductCard from "@/components/ProductCard";
+import Pagination from "@/components/Pagination";
 import { TechLabel, Tag } from "@/components/tech";
 
 type Match = {
@@ -16,7 +18,11 @@ type Match = {
 };
 
 function MatchTable({ title, matches, accent }: { title: string; matches: Match[]; accent?: boolean }) {
+  const PER = 10;
+  const [page, setPage] = useState(0);
   if (matches.length === 0) return null;
+  const pages = Math.ceil(matches.length / PER);
+  const shown = matches.slice(page * PER, page * PER + PER);
   return (
     <div className="mb-10">
       <div className="flex items-center gap-2 mb-3">
@@ -36,7 +42,7 @@ function MatchTable({ title, matches, accent }: { title: string; matches: Match[
             </tr>
           </thead>
           <tbody>
-            {matches.map(m => {
+            {shown.map(m => {
               const hasScore = m.homeScore != null && m.awayScore != null;
               const live = m.status === "LIVE";
               return (
@@ -62,6 +68,7 @@ function MatchTable({ title, matches, accent }: { title: string; matches: Match[
           </tbody>
         </table>
       </div>
+      <Pagination page={page} pages={pages} onPage={setPage} />
     </div>
   );
 }

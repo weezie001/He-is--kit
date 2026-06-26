@@ -4,7 +4,7 @@ import {
   ArrowUpRight, ArrowRight, Sparkles, Search, MessageCircle, Ruler,
 } from "lucide-react";
 import Layout from "@/components/Layout";
-import FeaturedCarousel from "@/components/FeaturedCarousel";
+import ProductCard from "@/components/ProductCard";
 import MatchTicker from "@/components/MatchTicker";
 import MatchCenter from "@/components/MatchCenter";
 import Reveal from "@/components/Reveal";
@@ -19,11 +19,10 @@ const AI_MODULES = [
 ];
 
 export default function Home() {
-  const { data: stripAll } = trpc.products.list.useQuery({ limit: 100 });
-  // 10 products spread across the catalog for the featured scroller
-  const strip = (stripAll || []).filter((_: any, i: number) =>
-    i % Math.max(1, Math.ceil((stripAll?.length || 10) / 10)) === 0
-  ).slice(0, 10);
+  const { data: allProducts } = trpc.products.list.useQuery({ limit: 100 });
+  // ~20 products spread across the catalog for the featured grid (≈5 rows × 4).
+  const step = Math.max(1, Math.ceil((allProducts?.length || 20) / 20));
+  const featured = (allProducts || []).filter((_: any, i: number) => i % step === 0).slice(0, 20);
 
   return (
     <Layout>
@@ -31,8 +30,8 @@ export default function Home() {
       <section className="relative overflow-hidden border-b-2 border-ink grid-bg">
         <div className="container">
           <div className="grid lg:grid-cols-[1fr_1.15fr] gap-6 lg:gap-10 items-stretch min-h-[82vh] lg:min-h-[88vh]">
-            {/* copy — vertically centered, full-height column */}
-            <div className="relative z-10 flex flex-col justify-center py-10 lg:py-16">
+            {/* copy — slides in from the left and settles */}
+            <div className="anim-slide-left relative z-10 flex flex-col justify-center py-10 lg:py-16">
               <div className="flex items-center gap-3 mb-5">
                 <Tag variant="signal">New Drop — WC2026</Tag>
                 <TechLabel className="hidden sm:block">Worldcup Collection</TechLabel>
@@ -56,8 +55,8 @@ export default function Home() {
               </div>
             </div>
 
-            {/* athlete cutout — fills the right, anchored to the base, big GEAR UP behind */}
-            <div className="relative flex items-end justify-center min-h-[52vh] lg:min-h-0">
+            {/* athlete cutout — slides in from the right and settles */}
+            <div className="anim-slide-right relative flex items-end justify-center min-h-[52vh] lg:min-h-0">
               <div aria-hidden className="absolute left-1/2 bottom-[4%] -translate-x-1/2 w-full max-w-[860px] aspect-square rounded-full bg-signal/15 blur-[90px]" />
               <span aria-hidden className="display absolute inset-x-0 bottom-[3%] flex justify-center text-center leading-[0.72] text-[clamp(7rem,27vw,20rem)] text-ink/[0.09] select-none pointer-events-none">
                 GEAR<br />UP
@@ -72,25 +71,7 @@ export default function Home() {
         </div>
       </section>
 
-      <MatchTicker />
-
-      {/* ============ FEATURED — static, manually scrollable / swipeable ============ */}
-      <section className="py-16 lg:py-24 overflow-hidden">
-        <div className="container flex items-end justify-between mb-8 gap-4 flex-wrap">
-          <div>
-            <TechLabel>The lineup</TechLabel>
-            <h2 className="display text-[clamp(2.5rem,6vw,5rem)] mt-2">Featured Drops</h2>
-          </div>
-          <Link href="/catalog" className="btn btn-outline">See more <ArrowUpRight className="w-4 h-4" /></Link>
-        </div>
-        {strip.length === 0 ? (
-          <div className="container"><ProductGridSkeleton count={4} /></div>
-        ) : (
-          <FeaturedCarousel products={strip} />
-        )}
-      </section>
-
-      {/* ============ AI MODULES ============ */}
+      {/* ============ SHOP FEATURES (AI modules) — right after the hero ============ */}
       <section className="surface-dark">
         <div className="container py-16 lg:py-24">
           <div className="flex items-center gap-3 mb-12">
@@ -125,6 +106,30 @@ export default function Home() {
               </Reveal>
             ))}
           </div>
+        </div>
+      </section>
+
+      <MatchTicker />
+
+      {/* ============ FEATURED — grid (no side-scroll), See more at the bottom ============ */}
+      <section className="py-16 lg:py-24">
+        <div className="container">
+          <div className="mb-8">
+            <TechLabel>The lineup</TechLabel>
+            <h2 className="display text-[clamp(2.5rem,6vw,5rem)] mt-2">Featured Drops</h2>
+          </div>
+          {featured.length === 0 ? (
+            <ProductGridSkeleton count={8} />
+          ) : (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
+                {featured.map((p: any) => <ProductCard key={p.id} product={p} />)}
+              </div>
+              <div className="flex justify-center mt-10 lg:mt-12">
+                <Link href="/catalog" className="btn btn-primary">See more <ArrowUpRight className="w-4 h-4" /></Link>
+              </div>
+            </>
+          )}
         </div>
       </section>
 

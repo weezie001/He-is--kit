@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { Package, Heart, ShieldCheck, Ruler, Sparkles, Settings as SettingsIcon, RefreshCw, ChevronRight, ChevronDown } from "lucide-react";
+import { Package, Heart, ShieldCheck, Ruler, Sparkles, Settings as SettingsIcon, RefreshCw, ChevronRight, ChevronDown, Gift } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useWishlistIds } from "@/lib/wishlist";
@@ -20,14 +20,27 @@ export default function ProfileDashboard({ profile, onRetake }: { profile: Profi
   const { user } = useAuth();
   const wishIds = useWishlistIds();
   const { data: orders } = trpc.orders.list.useQuery();
-  const { data: recommended } = trpc.products.list.useQuery({ style: profile.stylePreference || undefined, limit: 4 });
+  const { data: recommended } = trpc.products.list.useQuery({ style: profile.stylePreference || undefined, limit: 60 });
   const { data: allProducts } = trpc.products.list.useQuery({ limit: 100 });
   const [showCancelled, setShowCancelled] = useState(false);
+  const [recPage, setRecPage] = useState(0);
 
   const wishlist = (allProducts || []).filter((p: any) => wishIds.includes(p.id));
   const orderCount = orders?.length || 0;
   const activeOrders = (orders || []).filter((o: any) => o.status !== "cancelled");
   const cancelledOrders = (orders || []).filter((o: any) => o.status === "cancelled");
+
+  // Loyalty: a free mystery item on every 5th completed purchase.
+  const paidCount = (orders || []).filter((o: any) => o.paymentStatus === "completed").length;
+  const cycle = paidCount % 5;
+  const rewardUnlocked = paidCount > 0 && cycle === 0;
+  const rewardRemaining = rewardUnlocked ? 0 : 5 - cycle;
+
+  // Recommended — 3 rows (12) per page with prev/next.
+  const REC_PER = 12;
+  const recList = (recommended as any[]) || [];
+  const recPages = Math.max(1, Math.ceil(recList.length / REC_PER));
+  const recShown = recList.slice(recPage * REC_PER, recPage * REC_PER + REC_PER);
 
   const memberSince = (user as any)?.createdAt
     ? new Date((user as any).createdAt).toLocaleDateString(undefined, { month: "short", year: "numeric" })
@@ -61,6 +74,25 @@ export default function ProfileDashboard({ profile, onRetake }: { profile: Profi
         <div>
           <TechLabel className="text-signal">Your account</TechLabel>
           <h1 className="display text-[clamp(2.4rem,6vw,4.5rem)] mt-1">Hi, {user?.name || "Athlete"}</h1>
+
+          {/* Loyalty: anticipation for the free mystery item (every 5th purchase) */}
+          <div className={`mt-4 inline-flex items-center gap-3 border px-4 py-2.5 rounded-full ${rewardUnlocked ? "border-signal bg-signal/10" : "border-ink/15 bg-card"}`}>
+            <Gift className={`w-5 h-5 shrink-0 ${rewardUnlocked ? "text-signal" : "text-ink"}`} />
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold">{rewardUnlocked ? "Mystery item unlocked! 🎁" : "Free mystery item"}</span>
+                <span className="tech-label">{cycle}/5</span>
+              </div>
+              <div className="mt-1 h-1.5 w-44 bg-secondary rounded-full overflow-hidden">
+                <div className="h-full bg-signal transition-[width] duration-500" style={{ width: `${(cycle / 5) * 100}%` }} />
+              </div>
+              <p className="tech-label mt-1">
+                {rewardUnlocked
+                  ? "We'll add it to your next order"
+                  : `${rewardRemaining} more purchase${rewardRemaining === 1 ? "" : "s"} to unlock`}
+              </p>
+            </div>
+          </div>
         </div>
         <Link href="/settings" className="btn btn-outline">
           <SettingsIcon className="w-4 h-4" /> Settings
@@ -174,16 +206,23 @@ export default function ProfileDashboard({ profile, onRetake }: { profile: Profi
         </section>
       )}
 
-      {/* recommended */}
-      {recommended && recommended.length > 0 && (
+      {/* recommended — 3 rows per page */}
+      {recList.length > 0 && (
         <section>
-          <h2 className="display text-3xl mb-5">Recommended for you</h2>
-          <p className="text-muted-foreground font-medium -mt-3 mb-5">
+          <h2 className="display text-3xl mb-2">Recommended for you</h2>
+          <p className="text-muted-foreground font-medium mb-5">
             Based on your {profile.stylePreference ? `${profile.stylePreference.toLowerCase()} style` : "preferences"}.
           </p>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
-            {recommended.map((p: any) => <ProductCard key={p.id} product={p} />)}
+            {recShown.map((p: any) => <ProductCard key={p.id} product={p} />)}
           </div>
+          {recPages > 1 && (
+            <div className="flex items-center justify-center gap-3 mt-8">
+              <button onClick={() => setRecPage(p => Math.max(0, p - 1))} disabled={recPage === 0} className="btn btn-outline !py-2 disabled:opacity-40 disabled:pointer-events-none">Prev</button>
+              <span className="tech-label">Page {recPage + 1} of {recPages}</span>
+              <button onClick={() => setRecPage(p => Math.min(recPages - 1, p + 1))} disabled={recPage >= recPages - 1} className="btn btn-outline !py-2 disabled:opacity-40 disabled:pointer-events-none">Next</button>
+            </div>
+          )}
         </section>
       )}
 

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "wouter";
 import { ChevronRight, AlertTriangle, Loader2 } from "lucide-react";
 import {
@@ -28,8 +29,10 @@ function ChartTip({ active, payload, label, kind }: any) {
 export default function AdminDashboard() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
+  const [days, setDays] = useState(14);
   const { data, isLoading } = trpc.admin.stats.useQuery(undefined, { enabled: isAdmin });
-  const { data: analytics } = trpc.admin.analytics.useQuery(undefined, { enabled: isAdmin });
+  const { data: analytics } = trpc.admin.analytics.useQuery({ days }, { enabled: isAdmin });
+  const RANGES = [7, 14, 30, 90];
 
   const categoryData = (analytics?.categoryRevenue || []).map(c => ({ label: labelizeCategory(c.category), revenue: c.revenue }));
 
@@ -54,7 +57,21 @@ export default function AdminDashboard() {
           {/* Analytics graphs */}
           <div className="grid lg:grid-cols-2 gap-6">
             <section>
-              <h2 className="display text-2xl mb-4">Sales — last 14 days</h2>
+              <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+                <h2 className="display text-2xl">Sales — last {days} days</h2>
+                <div className="inline-flex border border-ink/20">
+                  {RANGES.map(r => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setDays(r)}
+                      className={`px-3 py-1 text-xs font-bold uppercase tracking-wide transition-colors ${days === r ? "surface-dark" : "hover:bg-secondary"}`}
+                    >
+                      {r}d
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="border border-ink/15 bg-card p-4 pt-5">
                 <ResponsiveContainer width="100%" height={260}>
                   <AreaChart data={analytics?.salesByDay || []} margin={{ top: 4, right: 8, bottom: 0, left: -10 }}>

@@ -39,6 +39,23 @@ export default function Catalog() {
     );
   }, [products, query]);
 
+  // Infinite scroll — render a growing slice, load more as the sentinel nears.
+  const PAGE = 12;
+  const [visible, setVisible] = useState(PAGE);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { setVisible(PAGE); }, [selectedCategory, query]); // reset on filter change
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      entries => { if (entries[0]?.isIntersecting) setVisible(v => (v < filtered.length ? v + PAGE : v)); },
+      { rootMargin: "600px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [filtered.length]);
+  const shown = filtered.slice(0, visible);
+
   const pickCategory = (value?: string) => {
     setSelectedCategory(value);
     navigate(value ? `/catalog?category=${value}` : "/catalog");
@@ -89,13 +106,20 @@ export default function Catalog() {
         {isLoading ? (
           <ProductGridSkeleton count={12} />
         ) : filtered.length > 0 ? (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
-            {filtered.map((p: any, i: number) => (
-              <Reveal key={p.id} delay={(i % 4) * 60}>
-                <ProductCard product={p} index={i + 1} />
-              </Reveal>
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+              {shown.map((p: any, i: number) => (
+                <Reveal key={p.id} delay={(i % 4) * 60}>
+                  <ProductCard product={p} index={i + 1} />
+                </Reveal>
+              ))}
+            </div>
+            {visible < filtered.length && (
+              <div ref={sentinelRef} className="h-16 grid place-items-center mt-8">
+                <span className="tech-label text-muted-foreground animate-pulse">Loading more…</span>
+              </div>
+            )}
+          </>
         ) : (
           <div className="text-center py-24">
             <h2 className="display text-4xl mb-3">Nothing here yet</h2>

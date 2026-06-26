@@ -338,6 +338,37 @@ export async function saveSearchQuery(userId: number | undefined, query: string,
   return db.insert(searchHistory).values({ userId, query, results, clicked });
 }
 
+// --- Admin AI insights: recent chats + searches across all users ---
+export async function adminGetRecentChats(limit = 120) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({
+      id: chatMessages.id, userId: chatMessages.userId, role: chatMessages.role,
+      content: chatMessages.content, createdAt: chatMessages.createdAt,
+      userName: users.name, userEmail: users.email,
+    })
+    .from(chatMessages)
+    .leftJoin(users, eq(chatMessages.userId, users.id))
+    .orderBy(desc(chatMessages.createdAt))
+    .limit(limit);
+}
+
+export async function adminGetRecentSearches(limit = 300) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({
+      id: searchHistory.id, userId: searchHistory.userId, query: searchHistory.query,
+      results: searchHistory.results, createdAt: searchHistory.createdAt,
+      userName: users.name, userEmail: users.email,
+    })
+    .from(searchHistory)
+    .leftJoin(users, eq(searchHistory.userId, users.id))
+    .orderBy(desc(searchHistory.createdAt))
+    .limit(limit);
+}
+
 export async function updateUserProfile(userId: number, profileData: any) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");

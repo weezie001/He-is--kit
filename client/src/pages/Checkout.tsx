@@ -132,6 +132,11 @@ export default function Checkout() {
                     ? "No real payment provider is configured, so you'll be taken to a simulated gateway to complete the order. Add payment keys to go live."
                     : `You'll be redirected to ${providerLabel} to pay securely by card, bank, USSD or transfer, then returned here.`}
                 </p>
+                {!isMock && payConfig?.provider === "flutterwave" && (
+                  <p className="text-xs text-muted-foreground mt-3 leading-relaxed border-t border-ink/10 pt-3">
+                    Payments are processed securely by <b>Flutterwave</b>, a PCI-DSS Level 1–certified payment provider trusted across Africa. Your card and bank details are encrypted and entered on Flutterwave's secure page — <b>HEIS KITS never sees or stores them</b>.
+                  </p>
+                )}
                 <div className="mt-3 text-sm">
                   <span className="tech-label">Shipping to</span>
                   <p className="font-medium mt-1">{formData.name} · {[formData.address, formData.city, formData.country, formData.postalCode].filter(Boolean).join(", ")}</p>
