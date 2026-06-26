@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { Link } from "wouter";
-import { Package, Heart, ShieldCheck, Ruler, Sparkles, Settings as SettingsIcon, RefreshCw, ChevronRight } from "lucide-react";
+import { Package, Heart, ShieldCheck, Ruler, Sparkles, Settings as SettingsIcon, RefreshCw, ChevronRight, ChevronDown } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useWishlistIds } from "@/lib/wishlist";
@@ -21,9 +22,20 @@ export default function ProfileDashboard({ profile, onRetake }: { profile: Profi
   const { data: orders } = trpc.orders.list.useQuery();
   const { data: recommended } = trpc.products.list.useQuery({ style: profile.stylePreference || undefined, limit: 4 });
   const { data: allProducts } = trpc.products.list.useQuery({ limit: 100 });
+  const [showCancelled, setShowCancelled] = useState(false);
 
   const wishlist = (allProducts || []).filter((p: any) => wishIds.includes(p.id));
   const orderCount = orders?.length || 0;
+  const activeOrders = (orders || []).filter((o: any) => o.status !== "cancelled");
+  const cancelledOrders = (orders || []).filter((o: any) => o.status === "cancelled");
+
+  const memberSince = (user as any)?.createdAt
+    ? new Date((user as any).createdAt).toLocaleDateString(undefined, { month: "short", year: "numeric" })
+    : "—";
+  const loginLabel =
+    user?.loginMethod === "google" ? "Google"
+    : user?.loginMethod === "email" ? "Email & password"
+    : user?.loginMethod ? user.loginMethod : "HEIS ID";
 
   const tiles = [
     { icon: Package, title: "Your Orders", sub: `${orderCount} order${orderCount === 1 ? "" : "s"}`, href: "#orders" },
@@ -81,11 +93,15 @@ export default function ProfileDashboard({ profile, onRetake }: { profile: Profi
       {/* preferences + security */}
       <div className="grid lg:grid-cols-2 gap-6 mb-14">
         <div id="security" className="border border-ink/15 p-6">
-          <TechLabel ink>Profile</TechLabel>
+          <div className="flex items-center justify-between">
+            <TechLabel ink>Profile</TechLabel>
+            <Link href="/settings" className="tech-label text-signal hover:underline">Edit</Link>
+          </div>
           <div className="mt-4 space-y-3">
             <Field label="Name" value={user?.name || "—"} />
             <Field label="Email" value={user?.email || "—"} />
-            <Field label="Member since" value="2026" />
+            <Field label="Sign-in" value={loginLabel} />
+            <Field label="Member since" value={memberSince} />
           </div>
         </div>
         <div className="border border-ink/15 p-6">
@@ -103,16 +119,48 @@ export default function ProfileDashboard({ profile, onRetake }: { profile: Profi
 
       {/* orders */}
       <section id="orders" className="mb-14">
-        <h2 className="display text-3xl mb-5">Your orders</h2>
+        <div className="flex items-end justify-between gap-3 mb-5">
+          <h2 className="display text-3xl">Your orders</h2>
+          {orderCount > 0 && <Link href="/catalog" className="tech-label hover:text-signal hidden sm:inline">Continue shopping →</Link>}
+        </div>
+
         {orderCount === 0 ? (
-          <div className="border border-ink/15 p-8 text-center">
-            <p className="text-muted-foreground font-medium mb-4">You haven't placed any orders yet.</p>
+          <div className="border border-ink/15 p-10 text-center">
+            <Package className="w-8 h-8 mx-auto text-muted-foreground mb-3" />
+            <p className="font-bold mb-1">No orders yet</p>
+            <p className="text-muted-foreground font-medium mb-5 text-sm">When you place an order, it'll show up here with live tracking.</p>
             <Link href="/catalog" className="btn btn-primary">Start shopping</Link>
           </div>
         ) : (
-          <div className="space-y-4">
-            {orders!.map((o: any) => <OrderTracking key={o.id} order={o} />)}
-          </div>
+          <>
+            {activeOrders.length > 0 ? (
+              <div className="space-y-4">
+                {activeOrders.map((o: any) => <OrderTracking key={o.id} order={o} />)}
+              </div>
+            ) : (
+              <p className="text-muted-foreground font-medium text-sm">No active orders right now.</p>
+            )}
+
+            {/* cancelled — tucked behind a disclosure so they don't clutter the list */}
+            {cancelledOrders.length > 0 && (
+              <div className="mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowCancelled(s => !s)}
+                  aria-expanded={showCancelled}
+                  className="inline-flex items-center gap-2 tech-label text-muted-foreground hover:text-ink cursor-pointer"
+                >
+                  <ChevronDown className={`w-4 h-4 transition-transform ${showCancelled ? "rotate-180" : ""}`} />
+                  Cancelled orders ({cancelledOrders.length})
+                </button>
+                {showCancelled && (
+                  <div className="space-y-3 mt-4">
+                    {cancelledOrders.map((o: any) => <OrderTracking key={o.id} order={o} muted />)}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
       </section>
 

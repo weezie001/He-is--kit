@@ -397,7 +397,32 @@ export const appRouter = router({
       }),
 
     list: protectedProcedure.query(async ({ ctx }) => {
-      return db.getUserOrders(ctx.user.id);
+      const list = await db.getUserOrders(ctx.user.id);
+      // Enrich each order's line items with product details (name/image/etc.) so
+      // the account UI can show WHAT was ordered. Additive — items keep their
+      // original {productId, size, quantity, price}. Cache lookups across orders.
+      const cache = new Map<number, any>();
+      const lookup = async (id: number) => {
+        if (!cache.has(id)) cache.set(id, (await db.getProductById(id)) || null);
+        return cache.get(id);
+      };
+      return Promise.all(
+        (list as any[]).map(async o => {
+          const items = Array.isArray(o.items) ? o.items : [];
+          const enriched = await Promise.all(
+            items.map(async (it: any) => {
+              const p = await lookup(it.productId);
+              return {
+                ...it,
+                product: p
+                  ? { id: p.id, name: p.name, imageUrl: p.imageUrl, category: p.category, color: p.color }
+                  : null,
+              };
+            }),
+          );
+          return { ...o, items: enriched };
+        }),
+      );
     }),
 
     // Cancel an order (allowed until it's delivered)

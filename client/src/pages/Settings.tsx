@@ -59,12 +59,29 @@ export default function Settings() {
   }
 
   const canChangePassword = user?.loginMethod === "email";
+  const loginLabel =
+    user?.loginMethod === "google" ? "Google"
+    : user?.loginMethod === "email" ? "Email & password"
+    : user?.loginMethod ? user.loginMethod : "HEIS ID";
+  const memberSince = (user as any)?.createdAt
+    ? new Date((user as any).createdAt).toLocaleDateString(undefined, { month: "short", year: "numeric" })
+    : "";
 
   return (
     <Layout>
       <div className="container py-10">
         <Link href="/profile" className="inline-flex items-center gap-1 tech-label hover:text-signal mb-4"><ChevronLeft className="w-4 h-4" /> Back to account</Link>
-        <h1 className="display text-[clamp(2.4rem,6vw,4.5rem)] mb-8">Settings</h1>
+        <h1 className="display text-[clamp(2.4rem,6vw,4.5rem)] mb-6">Settings</h1>
+
+        {/* account summary */}
+        <div className="flex items-center gap-4 border border-ink/15 p-4 sm:p-5 mb-8 bg-card">
+          <span className="w-12 h-12 grid place-items-center bg-ink text-paper display text-xl shrink-0">{(user?.name || "?").charAt(0).toUpperCase()}</span>
+          <div className="min-w-0">
+            <p className="font-bold truncate">{user?.name || "Your account"}</p>
+            <p className="tech-label mt-0.5 truncate">{user?.email}{memberSince ? ` · Member since ${memberSince}` : ""}</p>
+          </div>
+          <span className="ml-auto text-[10px] font-bold uppercase tracking-wide px-2 py-1 bg-secondary shrink-0">{loginLabel}</span>
+        </div>
 
         <div className="grid lg:grid-cols-[220px_1fr] gap-8">
           {/* sub-page nav */}
@@ -120,23 +137,34 @@ export default function Settings() {
 
             {tab === "notifications" && (
               <Section title="Notifications">
-                <label className="flex items-center justify-between border border-ink/15 p-5 cursor-pointer">
-                  <span><span className="font-bold block">Marketing emails</span><span className="tech-label mt-1 block">Drops, offers & news</span></span>
-                  <input type="checkbox" defaultChecked={user?.marketingOptIn !== false} onChange={e => save.mutate({ marketingOptIn: e.target.checked })} className="w-5 h-5 accent-[var(--signal)]" />
-                </label>
+                <div className="space-y-3">
+                  <label className="flex items-center justify-between border border-ink/15 p-5 cursor-pointer">
+                    <span><span className="font-bold block">Marketing emails</span><span className="tech-label mt-1 block">Drops, offers & news</span></span>
+                    <input type="checkbox" defaultChecked={user?.marketingOptIn !== false} onChange={e => save.mutate({ marketingOptIn: e.target.checked })} className="w-5 h-5 accent-[var(--signal)]" />
+                  </label>
+                  <div className="flex items-center justify-between border border-ink/15 p-5 opacity-80">
+                    <span><span className="font-bold block">Order & shipping updates</span><span className="tech-label mt-1 block">Receipts, dispatch & delivery</span></span>
+                    <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-1 bg-secondary">Always on</span>
+                  </div>
+                  <p className="tech-label">Transactional emails about your orders can't be turned off.</p>
+                </div>
               </Section>
             )}
 
             {tab === "security" && (
-              <Section title="Password">
+              <Section title="Login & security">
+                <div className="flex items-center justify-between border border-ink/15 p-5 mb-5">
+                  <div><p className="font-bold">Sign-in method</p><p className="tech-label mt-1">How you access your account</p></div>
+                  <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-1 bg-secondary">{loginLabel}</span>
+                </div>
                 {canChangePassword ? (
                   <form onSubmit={e => { e.preventDefault(); changePassword.mutate(pw); }} className="space-y-3">
-                    <Field label="Current password"><input className="field" type="password" value={pw.currentPassword} onChange={e => setPw(p => ({ ...p, currentPassword: e.target.value }))} required /></Field>
-                    <Field label="New password"><input className="field" type="password" value={pw.newPassword} onChange={e => setPw(p => ({ ...p, newPassword: e.target.value }))} minLength={6} required /></Field>
+                    <Field label="Current password"><input className="field" type="password" autoComplete="current-password" value={pw.currentPassword} onChange={e => setPw(p => ({ ...p, currentPassword: e.target.value }))} required /></Field>
+                    <Field label="New password"><input className="field" type="password" autoComplete="new-password" value={pw.newPassword} onChange={e => setPw(p => ({ ...p, newPassword: e.target.value }))} minLength={6} required /></Field>
                     <button type="submit" disabled={changePassword.isPending} className="btn btn-primary">{changePassword.isPending && <Loader2 className="w-4 h-4 animate-spin" />} Update password</button>
                   </form>
                 ) : (
-                  <p className="text-sm text-muted-foreground font-medium">You signed in with a social account — there's no password to change here.</p>
+                  <p className="text-sm text-muted-foreground font-medium">You sign in with {loginLabel} — there's no password to manage here. To reset access, use your {loginLabel} account.</p>
                 )}
               </Section>
             )}

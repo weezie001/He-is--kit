@@ -1,7 +1,8 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
-import { Route, Switch } from "wouter";
+import { useEffect } from "react";
+import { Route, Switch, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
@@ -27,6 +28,17 @@ import MockPay from "./pages/MockPay";
 import ResetPassword from "./pages/ResetPassword";
 import LegalPage from "./pages/Legal";
 import CookieConsent from "./components/CookieConsent";
+
+// Reset scroll to the top on every route change, so a new page always opens at
+// the top (not wherever the previous page was scrolled). In-page #hash anchors
+// don't change wouter's pathname, so this leaves anchor jumps untouched.
+function ScrollToTop() {
+  const [location] = useLocation();
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [location]);
+  return null;
+}
 
 function Router() {
   return (
@@ -69,6 +81,7 @@ function App() {
       <ThemeProvider defaultTheme="light" switchable>
         <TooltipProvider>
           <Toaster />
+          <ScrollToTop />
           <Router />
           <CookieConsent />
         </TooltipProvider>
