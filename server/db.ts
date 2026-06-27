@@ -1,7 +1,7 @@
-import { eq, and, inArray, notInArray, desc, gt, sql } from "drizzle-orm";
+import { eq, and, inArray, notInArray, desc, gt, gte, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
-import { InsertUser, InsertProduct, users, products, cartItems, orders, chatMessages, searchHistory, reviews, supportMessages, passwordResetTokens, matchHistory } from "../drizzle/schema";
+import { InsertUser, InsertProduct, users, products, cartItems, orders, chatMessages, searchHistory, reviews, supportMessages, passwordResetTokens, matchHistory, tryOnUsage } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { buildMysqlPoolConfig } from "./_core/dbConfig";
 
@@ -333,6 +333,23 @@ export async function getChatHistory(userId: number, limit = 50) {
   if (!db) return [];
 
   return db.select().from(chatMessages).where(eq(chatMessages.userId, userId)).orderBy(desc(chatMessages.createdAt)).limit(limit);
+}
+
+// --- Virtual try-on usage: count this calendar month + record a generation ---
+export async function getTryOnUsageThisMonth(userId: number): Promise<{ global: number; user: number }> {
+  const db = await getDb();
+  if (!db) return { global: 0, user: 0 };
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const g = await db.select({ c: sql<number>`count(*)` }).from(tryOnUsage).where(gte(tryOnUsage.createdAt, monthStart));
+  const u = await db.select({ c: sql<number>`count(*)` }).from(tryOnUsage).where(and(gte(tryOnUsage.createdAt, monthStart), eq(tryOnUsage.userId, userId)));
+  return { global: Number(g[0]?.c || 0), user: Number(u[0]?.c || 0) };
+}
+
+export async function recordTryOn(userId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(tryOnUsage).values({ userId });
 }
 
 // --- Match history: persist finished matches ~12h for the Livescore History ---

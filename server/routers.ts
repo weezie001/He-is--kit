@@ -639,7 +639,20 @@ Return JSON { recs: [{ team: string, productId: number }] }. Only include teams 
 
   // Virtual Try-On — composite a product onto the user's uploaded photo
   tryOn: router({
-    generate: publicProcedure
+    // Remaining monthly try-ons for the signed-in user (drives the UI).
+    quota: protectedProcedure.query(async ({ ctx }) => {
+      const usage = await db.getTryOnUsageThisMonth(ctx.user.id);
+      const userRemaining = Math.max(0, ENV.tryOnUserCap - usage.user);
+      const globalRemaining = Math.max(0, ENV.tryOnGlobalCap - usage.global);
+      return {
+        userCap: ENV.tryOnUserCap,
+        userRemaining,
+        globalRemaining,
+        available: userRemaining > 0 && globalRemaining > 0,
+      };
+    }),
+
+    generate: protectedProcedure
       .input(
         z.object({
           productId: z.number(),
@@ -647,19 +660,28 @@ Return JSON { recs: [{ team: string, productId: number }] }. Only include teams 
             b64Json: z.string(), // base64 (no data: prefix)
             mimeType: z.string().default("image/jpeg"),
           }),
-          // Camera angles to render. Each is a separate generation.
-          views: z.array(z.string()).default(["front", "three-quarter angle"]),
+          // Camera angles requested; we render only the first to bound cost.
+          views: z.array(z.string()).default(["front"]),
         })
       )
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
         const product = await db.getProductById(input.productId);
         if (!product) throw new TRPCError({ code: "NOT_FOUND" });
 
+        // Budget guard — enforce the monthly image quota before we spend.
+        const usage = await db.getTryOnUsageThisMonth(ctx.user.id);
+        if (usage.global >= ENV.tryOnGlobalCap) {
+          throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Virtual try-on has reached this month's capacity — it resets on the 1st." });
+        }
+        if (usage.user >= ENV.tryOnUserCap) {
+          throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: `You've used all ${ENV.tryOnUserCap} of your try-ons this month — they reset on the 1st.` });
+        }
+
         const garment = `${product.name}${product.color ? `, ${product.color}` : ""} (${product.category.replace("_", " ")})`;
 
-        // Generate each requested view independently.
+        // One image per try-on to keep spend predictable (~$0.04 each).
         const results = await Promise.allSettled(
-          input.views.slice(0, 4).map(async view => {
+          input.views.slice(0, 1).map(async view => {
             const prompt = [
               "You are a professional virtual try-on / fashion compositing engine.",
               `Take the PERSON in the first image and dress them in the FOOTBALL GARMENT shown in the second image: a ${garment}.`,
@@ -694,6 +716,9 @@ Return JSON { recs: [{ team: string, productId: number }] }. Only include teams 
             message: firstErr ? String(firstErr.reason?.message || firstErr.reason) : "Try-on generation failed",
           });
         }
+
+        // Count the successful image against the monthly budget.
+        await db.recordTryOn(ctx.user.id);
 
         return { product: { id: product.id, name: product.name }, images };
       }),

@@ -195,3 +195,15 @@ export const matchHistory = mysqlTable("matchHistory", {
 });
 
 export type MatchHistory = typeof matchHistory.$inferSelect;
+
+/**
+ * Virtual try-on usage — one row per generated image, used to enforce the
+ * monthly image budget (global cap + per-user cap). "Monthly" = filter by createdAt.
+ */
+export const tryOnUsage = mysqlTable("tryOnUsage", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type TryOnUsage = typeof tryOnUsage.$inferSelect;

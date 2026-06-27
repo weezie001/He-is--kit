@@ -64,6 +64,13 @@
       "when": 1782512082854,
       "tag": "0008_hot_korath",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1782544703008,
+      "tag": "0009_small_nehzno",
+      "breakpoints": true
     }
   ]
 }
