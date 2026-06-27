@@ -203,6 +203,9 @@ export type MatchHistory = typeof matchHistory.$inferSelect;
 export const tryOnUsage = mysqlTable("tryOnUsage", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
+  productId: int("productId"),
+  size: varchar("size", { length: 16 }),
+  resultUrl: text("resultUrl"), // cached result so (user,product,size) generates once
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

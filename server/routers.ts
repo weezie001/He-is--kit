@@ -77,6 +77,18 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   sports_bags: ["bag", "backpack", "duffel", "holdall"],
 };
 
+// Try-on is only for wearable apparel/footwear (not balls, bags, towels).
+const TRYON_CATEGORIES = new Set([
+  "club_jerseys", "trainers", "boots", "track_suits", "training_kits", "gym_gear",
+]);
+function sizeFit(size: string): string {
+  const s = (size || "").toUpperCase();
+  if (s === "XS" || s === "S") return "snug, fitted";
+  if (s === "L") return "comfortable, relaxed";
+  if (s === "XL" || s === "XXL" || s === "XXXL") return "loose, oversized";
+  return "true-to-size, regular";
+}
+
 function resolveCategory(text?: string): string | undefined {
   const t = (text || "").toLowerCase();
   for (const [slug, kws] of Object.entries(CATEGORY_KEYWORDS)) {
@@ -656,17 +668,28 @@ Return JSON { recs: [{ team: string, productId: number }] }. Only include teams 
       .input(
         z.object({
           productId: z.number(),
+          size: z.string().min(1), // user must confirm a size
           userImage: z.object({
             b64Json: z.string(), // base64 (no data: prefix)
             mimeType: z.string().default("image/jpeg"),
           }),
-          // Camera angles requested; we render only the first to bound cost.
-          views: z.array(z.string()).default(["front"]),
         })
       )
       .mutation(async ({ ctx, input }) => {
         const product = await db.getProductById(input.productId);
         if (!product) throw new TRPCError({ code: "NOT_FOUND" });
+
+        // Try-on is only for wearable apparel/footwear.
+        if (!TRYON_CATEGORIES.has(product.category)) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Virtual try-on is available for clothing items only." });
+        }
+
+        // One generation per (user, product, size): serve the cached image if we
+        // already made it — instant and free.
+        const cached = await db.getCachedTryOn(ctx.user.id, product.id, input.size);
+        if (cached) {
+          return { product: { id: product.id, name: product.name }, size: input.size, image: { url: cached }, cached: true };
+        }
 
         // Budget guard — enforce the monthly image quota before we spend.
         const usage = await db.getTryOnUsageThisMonth(ctx.user.id);
@@ -677,50 +700,52 @@ Return JSON { recs: [{ team: string, productId: number }] }. Only include teams 
           throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: `You've used all ${ENV.tryOnUserCap} of your try-ons this month — they reset on the 1st.` });
         }
 
-        const garment = `${product.name}${product.color ? `, ${product.color}` : ""} (${product.category.replace("_", " ")})`;
+        const isJersey = product.category === "club_jerseys";
+        const garment = `${product.name}${product.color ? `, ${product.color}` : ""}`;
+        // Product images may be stored as site-relative paths; the image API
+        // needs an absolute URL to fetch the garment.
+        const base = (ENV.appBaseUrl || "https://heiskits.com").replace(/\/$/, "");
+        const garmentUrl = /^https?:\/\//i.test(product.imageUrl)
+          ? product.imageUrl
+          : `${base}/${product.imageUrl.replace(/^\//, "")}`;
+        const framing = isJersey
+          ? "Frame the shot from the head to the waist (upper body only), front-facing and centered."
+          : "Render a full-body, head-to-toe front-facing shot, centered.";
+        const imageSize = isJersey ? "1024x1024" : "1024x1536";
 
-        // One image per try-on to keep spend predictable (~$0.04 each).
-        const results = await Promise.allSettled(
-          input.views.slice(0, 1).map(async view => {
-            const prompt = [
-              "You are a professional virtual try-on / fashion compositing engine.",
-              `Take the PERSON in the first image and dress them in the FOOTBALL GARMENT shown in the second image: a ${garment}.`,
-              "Preserve the person's face, skin tone, hair, body shape and proportions exactly.",
-              "The garment must fit the body naturally with realistic folds, lighting and shadows.",
-              `Render a photorealistic, full-body ${view} studio shot on a clean neutral background.`,
-              "Output only the final image.",
-            ].join(" ");
+        const prompt = [
+          "You are a professional fashion e-commerce try-on studio.",
+          `Dress the PERSON in the first image in the EXACT garment shown in the second image — a ${garment}.`,
+          "CRITICAL: keep the person's face, facial features, hairstyle, skin tone and identity EXACTLY the same — do not change their facial composition in any way.",
+          "Reproduce the garment faithfully: same colours, patterns, badges, sponsor and details. Use ONLY this one garment; do not add other clothing or accessories.",
+          `Fit it as size ${input.size.toUpperCase()} — a ${sizeFit(input.size)} fit, with natural folds and realistic lighting and shadows.`,
+          framing,
+          "Background: pure solid white seamless studio backdrop.",
+          "Style: professional, ultra-sharp 4K studio photography, soft even lighting, true-to-life colours.",
+          "Add a small, subtle 'HEIS KITS' text watermark in the bottom-right corner.",
+          "Output only the final image.",
+        ].join(" ");
 
-            const { url } = await generateImage({
-              prompt,
-              originalImages: [
-                { b64Json: input.userImage.b64Json, mimeType: input.userImage.mimeType },
-                { url: product.imageUrl, mimeType: "image/jpeg" },
-              ],
-            });
-            return { view, url };
-          })
-        );
-
-        const images: Array<{ view: string; url: string }> = [];
-        for (const r of results) {
-          if (r.status === "fulfilled" && r.value.url) {
-            images.push({ view: r.value.view, url: r.value.url });
-          }
-        }
-
-        if (images.length === 0) {
-          const firstErr = results.find(r => r.status === "rejected") as PromiseRejectedResult | undefined;
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: firstErr ? String(firstErr.reason?.message || firstErr.reason) : "Try-on generation failed",
+        let url: string;
+        try {
+          const r = await generateImage({
+            prompt,
+            imageSize,
+            originalImages: [
+              { b64Json: input.userImage.b64Json, mimeType: input.userImage.mimeType },
+              { url: garmentUrl },
+            ],
           });
+          if (!r.url) throw new Error("No image returned");
+          url = r.url;
+        } catch (err: any) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: String(err?.message || "Try-on generation failed") });
         }
 
-        // Count the successful image against the monthly budget.
-        await db.recordTryOn(ctx.user.id);
+        // Cache + count the successful image against the monthly budget.
+        await db.recordTryOn(ctx.user.id, product.id, input.size, url);
 
-        return { product: { id: product.id, name: product.name }, images };
+        return { product: { id: product.id, name: product.name }, size: input.size, image: { url }, cached: false };
       }),
   }),
 

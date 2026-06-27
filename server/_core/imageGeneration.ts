@@ -25,6 +25,8 @@ export type GenerateImageOptions = {
     b64Json?: string;
     mimeType?: string;
   }>;
+  // OpenAI image size, e.g. "1024x1024" (square) or "1024x1536" (portrait).
+  imageSize?: string;
 };
 
 export type GenerateImageResponse = {
@@ -127,13 +129,14 @@ async function toImageFile(img: { url?: string; b64Json?: string; mimeType?: str
 // (person + garment → composite); without, it uses /images/generations.
 async function generateImageOpenAI(options: GenerateImageOptions): Promise<GenerateImageResponse> {
   const inputs = options.originalImages || [];
+  const size = options.imageSize || "1024x1024";
   let response: Response;
 
   if (inputs.length > 0) {
     const form = new FormData();
     form.append("model", OPENAI_IMAGE_MODEL);
     form.append("prompt", options.prompt);
-    form.append("size", "1024x1024");
+    form.append("size", size);
     form.append("quality", "medium");
     form.append("n", "1");
     for (const img of inputs) {
@@ -149,7 +152,7 @@ async function generateImageOpenAI(options: GenerateImageOptions): Promise<Gener
     response = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: { Authorization: `Bearer ${ENV.openaiApiKey}`, "content-type": "application/json" },
-      body: JSON.stringify({ model: OPENAI_IMAGE_MODEL, prompt: options.prompt, size: "1024x1024", quality: "medium", n: 1 }),
+      body: JSON.stringify({ model: OPENAI_IMAGE_MODEL, prompt: options.prompt, size, quality: "medium", n: 1 }),
     });
   }
 

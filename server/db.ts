@@ -346,10 +346,22 @@ export async function getTryOnUsageThisMonth(userId: number): Promise<{ global: 
   return { global: Number(g[0]?.c || 0), user: Number(u[0]?.c || 0) };
 }
 
-export async function recordTryOn(userId: number) {
+// Cached result for an exact (user, product, size) — so it generates only once.
+export async function getCachedTryOn(userId: number, productId: number, size: string): Promise<string | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select({ url: tryOnUsage.resultUrl })
+    .from(tryOnUsage)
+    .where(and(eq(tryOnUsage.userId, userId), eq(tryOnUsage.productId, productId), eq(tryOnUsage.size, size)))
+    .orderBy(desc(tryOnUsage.id))
+    .limit(1);
+  return rows[0]?.url || null;
+}
+
+export async function recordTryOn(userId: number, productId: number, size: string, resultUrl: string) {
   const db = await getDb();
   if (!db) return;
-  await db.insert(tryOnUsage).values({ userId });
+  await db.insert(tryOnUsage).values({ userId, productId, size, resultUrl });
 }
 
 // --- Match history: persist finished matches ~12h for the Livescore History ---

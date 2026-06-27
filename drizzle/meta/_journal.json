@@ -71,6 +71,13 @@
       "when": 1782544703008,
       "tag": "0009_small_nehzno",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1782570073170,
+      "tag": "0010_oval_shocker",
+      "breakpoints": true
     }
   ]
 }

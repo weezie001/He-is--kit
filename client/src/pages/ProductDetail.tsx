@@ -65,6 +65,7 @@ export default function ProductDetail() {
   }
 
   const sizes = product.sizes ? Object.keys(product.sizes) : ["XS", "S", "M", "L", "XL", "XXL"];
+  const tryOnOk = ["club_jerseys", "trainers", "boots", "track_suits", "training_kits", "gym_gear"].includes(product.category);
   const specs = [
     ["Material", product.material],
     ["Color", product.color],
@@ -168,10 +169,20 @@ export default function ProductDetail() {
             </div>
           )}
 
-          {/* Virtual Try-On */}
-          <VirtualTryOn productId={product.id} />
         </div>
       </div>
+
+      {/* Virtual Try-On — full width, right under the product */}
+      {tryOnOk && (
+        <div className="container pb-12">
+          <VirtualTryOn
+            productId={product.id}
+            category={product.category}
+            sizes={sizes}
+            defaultSize={selectedSize || undefined}
+          />
+        </div>
+      )}
 
       {/* Reviews */}
       <div className="container pb-20">
