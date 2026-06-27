@@ -34,7 +34,10 @@ export type GenerateImageResponse = {
 export async function generateImage(
   options: GenerateImageOptions
 ): Promise<GenerateImageResponse> {
-  // Prefer Gemini's native image model when a Gemini key is configured.
+  // Prefer OpenAI gpt-image-1 (funded), then Gemini, then the built-in forge.
+  if (ENV.openaiApiKey) {
+    return generateImageOpenAI(options);
+  }
   if (ENV.geminiApiKey) {
     return generateImageGemini(options);
   }
@@ -94,6 +97,76 @@ export async function generateImage(
   return {
     url,
   };
+}
+
+// ---- OpenAI gpt-image-1 -----------------------------------------------------
+const OPENAI_IMAGE_MODEL = "gpt-image-1";
+
+function extFromMime(m: string): string {
+  if (/png/i.test(m)) return "png";
+  if (/webp/i.test(m)) return "webp";
+  return "jpg";
+}
+
+async function toImageFile(img: { url?: string; b64Json?: string; mimeType?: string }): Promise<{ buffer: Buffer; mime: string; name: string } | null> {
+  if (img.b64Json) {
+    const mime = img.mimeType || "image/png";
+    return { buffer: Buffer.from(img.b64Json, "base64"), mime, name: `image.${extFromMime(mime)}` };
+  }
+  if (img.url) {
+    const r = await fetch(img.url);
+    if (!r.ok) return null;
+    const mime = img.mimeType || r.headers.get("content-type") || "image/jpeg";
+    return { buffer: Buffer.from(await r.arrayBuffer()), mime, name: `image.${extFromMime(mime)}` };
+  }
+  return null;
+}
+
+// Generates/edits an image with gpt-image-1. With reference images it uses the
+// /images/edits endpoint (multipart) — this is what powers virtual try-on
+// (person + garment → composite); without, it uses /images/generations.
+async function generateImageOpenAI(options: GenerateImageOptions): Promise<GenerateImageResponse> {
+  const inputs = options.originalImages || [];
+  let response: Response;
+
+  if (inputs.length > 0) {
+    const form = new FormData();
+    form.append("model", OPENAI_IMAGE_MODEL);
+    form.append("prompt", options.prompt);
+    form.append("size", "1024x1024");
+    form.append("quality", "medium");
+    form.append("n", "1");
+    for (const img of inputs) {
+      const f = await toImageFile(img);
+      if (f) form.append("image[]", new Blob([new Uint8Array(f.buffer)], { type: f.mime }), f.name);
+    }
+    response = await fetch("https://api.openai.com/v1/images/edits", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${ENV.openaiApiKey}` },
+      body: form,
+    });
+  } else {
+    response = await fetch("https://api.openai.com/v1/images/generations", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${ENV.openaiApiKey}`, "content-type": "application/json" },
+      body: JSON.stringify({ model: OPENAI_IMAGE_MODEL, prompt: options.prompt, size: "1024x1024", quality: "medium", n: 1 }),
+    });
+  }
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    if (response.status === 429 || /billing|insufficient_quota|hard_limit/i.test(detail)) {
+      throw new Error("Virtual try-on is temporarily unavailable (image credits exhausted). Please try again later.");
+    }
+    throw new Error(`OpenAI image generation failed (${response.status})${detail ? `: ${detail.slice(0, 200)}` : ""}`);
+  }
+
+  const result = (await response.json()) as any;
+  const b64 = result?.data?.[0]?.b64_json;
+  if (!b64) throw new Error("OpenAI returned no image");
+  const buffer = Buffer.from(b64, "base64");
+  const { url } = await storagePut(`generated/${Date.now()}.png`, buffer, "image/png");
+  return { url };
 }
 
 const GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image";

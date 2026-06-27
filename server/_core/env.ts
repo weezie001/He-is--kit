@@ -16,6 +16,8 @@ export const ENV = {
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
   geminiApiKey: process.env.GEMINI_API_KEY ?? "",
+  // OpenAI (gpt-image-1) — preferred for image generation/try-on when set.
+  openaiApiKey: process.env.OPENAI_API_KEY ?? "",
   // Virtual try-on monthly image budget ($5 ≈ 125 images at ~$0.04). The global
   // cap bounds total spend; the per-user cap distributes it fairly. Adjustable
   // via env so you can raise it later without a code change.
