@@ -1,123 +1,77 @@
 # HEIS KITS — Build Checklist & Progress Tracker
 
-> Companion to [BUILD_GUIDE.md](BUILD_GUIDE.md). Check items off as you go.
+> Companion to [BUILD_GUIDE.md](BUILD_GUIDE.md) / [HANDOFF.md](HANDOFF.md).
 > Status legend: ✅ done · 🟡 in progress · ⬜ not started · 🚫 blocked
+> **Last updated:** 2026-06-27
 
-**Overall progress:** Phases 0–10 largely built. Remaining: catalog data + deployment.
+**Overall:** 🟢 **LIVE in production at https://heiskits.com** — store, AI features,
+email, Google sign-in, SEO, and **live Flutterwave payments** are all wired.
+Remaining work is launch-safety hardening (see bottom): move the DB off the free
+trial, finish Flutterwave KYC, rotate exposed keys.
 
 ---
 
-## Phase 0 — The Sketch
-- [x] One-line pitch + tagline ("For the Love of the Game")
-- [x] Rough screen list (Home, Catalog, Detail, Cart, Checkout, Profile, Search, Chat, Size Advisor)
-- [x] Brand direction (black / white / cyan)
+## 🟢 Live in production
+- ✅ **Deployed on Vercel** + **custom domain `heiskits.com`** (apex + www, HTTPS, SSL issued)
+- ✅ **Database** — Aiven MySQL, schema migrated (now 10 tables incl. matchHistory, tryOnUsage), 45 products seeded
+- ✅ **Email (Resend)** — `heiskits.com` domain verified (DKIM/SPF/DMARC); sends welcome, order-confirm, shipped, cancelled + admin new-order/new-signup from `orders@heiskits.com`
+- ✅ **Auth** — local email/password + **"Continue with Google"** (standalone OAuth); account-takeover hardening applied
+- ✅ **Owner admin** — `OWNER_EMAIL` (Shekwolohaggai@gmail.com) auto-promoted to admin on sign-in
+- ✅ **Payments — Flutterwave LIVE** — live secret + public key + webhook secret hash wired; webhook `POST /api/payments/webhook`; provider verified live in prod
+- ✅ **SEO + social** — meta/OG/Twitter cards, `robots.txt`, dynamic `sitemap.xml` (products), Google Search Console **verified**
+- ✅ **Favicon** (HEIS "H")
 
-## Phase 1 — Discovery & Requirements
-- [x] Personas (Fan / Player / Gifter)
-- [x] Feature list (MoSCoW)
-- [x] Success metrics defined
-
-## Phase 2 — IA & User Flows
-- [x] Site map / route table
-- [x] Core browse-to-buy flow
-- [x] AI-assisted flows
-
-## Phase 3 — Wireframes & Design
-- [x] Design tokens (Tailwind + CSS vars)
-- [x] Component inventory
-- [x] Responsive rules
-- [x] **UI REDESIGN — Bold Sport / Hype (Nike SNKRS) direction** ✅
-  - Fonts: Anton (display) + Archivo (body) · Palette: white/black + blaze `#ff2e1f`
-  - Reusable kit: `index.css` utilities (.display/.btn/.tag/.field…) + `components/tech`, `Layout`, `ProductCard`
-  - Restyled: Home, Catalog, ProductDetail, Cart, Checkout, Search, SizeAdvisor, Chat, Profile, NotFound, VirtualTryOn
-  - New: Login/Signup (`/login`, `/signup`) wired to OAuth
-  - Admin panel: deferred (per scope decision)
-
-## Phase 4 — Tech Stack
-- [x] Stack chosen (React 19 / Vite / tRPC / Drizzle / MySQL)
-- [x] Single-process architecture (Express serves UI + API)
-
-## Phase 5 — Scaffolding
-- [x] Repo + folder layout
-- [x] `pnpm install` works
-- [x] `pnpm dev` serves the app
-- [ ] `.env.example` documenting required vars
+## Phases 0–4 — Discovery → Design → Stack
+- [x] Pitch, personas, IA/flows, design tokens
+- [x] **UI redesign** — Bold Sport / Hype direction (Anton + Archivo, white/black + blaze `#ff2e1f`)
+- [x] Stack: React 19 / Vite / tRPC / Drizzle / MySQL, Vercel serverless (`api/index.ts`)
 
 ## Phase 6 — Data Model
-- [x] Schema defined (`drizzle/schema.ts`: users, products, cartItems, orders, chatMessages, searchHistory)
-- [x] Migrations generated (`drizzle/*.sql`)
-- [x] **Database provisioned & migrated** ✅ (Aiven MySQL 8.4, all 6 tables created)
-- [x] **Sample products seeded** ✅ (10 products live)
+- [x] Schema (`drizzle/schema.ts`) + migrations applied to prod
+- [x] Tables: users, products, cartItems, orders, chatMessages, searchHistory, reviews, supportMessages, passwordResetTokens, matchHistory, tryOnUsage
+- [x] 45 products seeded (9 categories)
 
-## Phase 7 — Backend (API)
-- [x] tRPC routers (products / cart / orders / ai)
-- [x] Lazy Drizzle query layer (boots without DB)
-- [x] Zod input validation
-- [x] Request context with signed-in user
-
-## Phase 8 — Frontend
-- [x] App shell (Nav + Footer + routes)
-- [x] All pages built
-- [x] Components built
-- [x] tRPC data hooks wired
-- [x] Catalog renders real data ✅ (verified: 10 products + featured grid)
+## Phase 7–8 — Backend + Frontend
+- [x] tRPC routers (products, cart, orders, auth, payments, admin, matches, search, tryOn, support, profile)
+- [x] All pages + components; catalog renders real data
+- [x] Catalog: **infinite scroll**, **image-search icon**, **typeahead + recent-search history**
+- [x] Home: shop-features after hero, featured grid + "See more", parallax intro
+- [x] Profile: orders view (active/cancelled split), **try-on history**, loyalty progress, recommendations
 
 ## Phase 9 — AI Features
-- [x] Conversational Search
-- [x] Size Advisor
-- [x] Expert Chatbot
-- [x] Smart Profiler
-- [x] **Image Search** (upload photo → Gemini vision → catalog match) ✅ **live-tested, working** (free tier)
-- [x] **Virtual Try-On** (upload photo → garment composited on body, multi-angle) — built & verified; ⚠️ needs Gemini **billing enabled** (image gen = 0 on free tier)
-- [x] Gemini provider wired — native API via `x-goog-api-key` (`invokeLLM` + `generateImage`)
-- [x] Local-disk storage fallback (uploads + generated images, no S3 needed)
-- [x] `GEMINI_API_KEY` in `.env` + dotenv `override` fix (OS env var was shadowing it)
-- [x] Graceful quota/error messages (503 retry, friendly "needs billing" on 429)
-- [ ] **Decision: enable Gemini billing to turn on Virtual Try-On** ← NEXT
+- [x] Conversational Search · Size Advisor · Expert Chatbot (+ "New chat") · Smart Profiler
+- [x] **Image Search** — Gemini vision (free tier), live-tested; available on `/search` + in the catalog
+- [x] **Virtual Try-On** — ✅ **live on OpenAI `gpt-image-1.5`** (Gemini image billing couldn't be funded — Nigerian card rejected by Google; switched to OpenAI which accepted)
+  - Clothing-only (jerseys/trainers/gym), confirm size first, white bg, **head-to-waist for jerseys**, face preserved, 4K studio look, **HEIS KITS watermark**, downloadable
+  - Budget guardrail: **5/user-month**, ~90 global/month; cached per (user, product, size); OpenAI prepaid (~$7) is the hard ceiling
+- [x] **Size Advisor v2** — mannequin body-types + **Chest/Shoulder/Length** measurement selectors + click-to-open size chart
 
-## Phase 10 — Auth & Checkout
-- [x] OAuth login + JWT cookie
-- [x] **Local email/password auth** ✅ (scrypt hashing, `auth.register`/`auth.login`, same JWT session; works on localhost) — tested
-- [x] Cart management
-- [x] Order creation
-- [ ] Real payment provider integrated (e.g. Stripe)
+## Phase 10 — Auth & Checkout & Payments
+- [x] Google OAuth + local email/password (scrypt) + JWT session
+- [x] Cart + order creation
+- [x] **Flutterwave LIVE** integration (amounts in Naira major units; init via `/v3/payments`; verify via `verify_by_reference`; webhook auth via `verif-hash`)
 
-## Catalog content
-- [x] **Real product catalog** ✅ — 45 products across 9 categories (Jerseys, Tracksuits, Training Kits, Boots, Trainers, Balls, Gym Gear, Towels, Bags) from supplied product shoots, served from `client/public/products/`
-- [x] `category` column widened from enum → varchar to support new categories
-- [x] Hero: side-text layout + transparent athlete cutout (right) with "GEAR UP" behind
-
-## Phase 11 — Configuration & Secrets
-- [ ] `.env` populated locally
-- [ ] `.env.example` committed
-- [ ] Secrets set on host (deploy)
-
-## Phase 12 — Testing & QA
-- [x] Unit tests exist (`server/*.test.ts`)
-- [ ] `pnpm test` green locally
-- [ ] `pnpm check` (typecheck) green
-- [ ] Manual QA pass (mobile / keyboard / empty + error states)
-
-## Phase 13 — Build & Deployment
-- [ ] `pnpm build` succeeds
-- [ ] Host provisioned (Node) + managed MySQL
-- [ ] Env vars set on host
-- [ ] Migrations + seed run against prod DB
-- [ ] `pnpm start` serves in production
-- [ ] Domain + HTTPS + OAuth callback configured
-- [ ] Prod smoke test (order + AI features)
+## Phase 11–13 — Config / Build / Deploy
+- [x] Secrets set on Vercel (DB, Resend, Google, OpenAI, Flutterwave live, OWNER_EMAIL, etc.)
+- [x] `pnpm check` (typecheck) green · `pnpm build` succeeds
+- [x] Deployed; prod smoke-tested (endpoints, SEO, payments config)
 
 ## Phase 14 — Post-Launch
-- [ ] Monitoring / error tracking
-- [ ] Analytics (purchase funnel)
-- [ ] Iterate on AI prompts from logs
+- [x] Analytics (umami hooks present)
+- [x] **Admin AI Insights** — chats + searches grouped by customer, top products
+- [x] Admin sales graph with selectable date range (7/14/30/90)
+- [ ] Error monitoring / alerting (not set up)
 
 ---
 
-## Next Concrete Step
-**✅ DONE — catalog now shows real products (Aiven MySQL).**
+## 🔴 Remaining — launch-safety (do these next)
+1. ⬜ **Move the database off the Aiven free trial** — biggest risk; a trial power-off would take the store + orders down. **#1 priority now that real money flows.**
+2. 🟡 **Flutterwave KYC** — owner completing business verification so funds are **withdrawable** to bank (collection works; settlement needs KYC + a settlement bank account).
+3. ⬜ **Live payment test** — one small real purchase → confirm wallet credit + order marked paid in /admin.
+4. ⬜ **Rotate keys exposed during the (now-removed) clipboard-malware window** — DB password (highest), and the OpenAI key shared in chat. (Resend, Google secret, Gemini already rotated.)
+5. ⬜ **Delete old `admin@heiskits.com`** once the owner confirms the Gmail account has admin (kept as fallback).
+6. ⬜ Mobile hero — visual check on a real device; fine-tune crop if needed.
 
-**Next up — pick one:**
-1. [ ] Wire up an LLM key (`BUILT_IN_FORGE_API_*`) so Search / Chatbot / Size Advisor work
-2. [ ] Test the full cart → checkout → order flow against the real DB
-3. [ ] `.env.example` + commit, then deploy (Phase 13)
+## Notes
+- Dev machine had a **NetSupport RAT + clipboard clipper** — found & removed; Defender quick scan clean. Key rotation above is the follow-up.
+- Try-on model is env-configurable via `OPENAI_IMAGE_MODEL` (gpt-image-2 exists but ~80s = times out the 60s function; 1.5 is the sweet spot).
