@@ -18,11 +18,13 @@ export const ENV = {
   geminiApiKey: process.env.GEMINI_API_KEY ?? "",
   // OpenAI (gpt-image-1) — preferred for image generation/try-on when set.
   openaiApiKey: process.env.OPENAI_API_KEY ?? "",
-  // Virtual try-on monthly image budget ($5 ≈ 125 images at ~$0.04). The global
-  // cap bounds total spend; the per-user cap distributes it fairly. Adjustable
-  // via env so you can raise it later without a code change.
-  tryOnGlobalCap: Number(process.env.TRYON_GLOBAL_CAP ?? 120),
-  tryOnUserCap: Number(process.env.TRYON_USER_CAP ?? 3),
+  // OpenAI image model for try-on. gpt-image-1.5 ≈ 33s (fits the 60s function
+  // limit); gpt-image-2 is higher quality but ~80s and would time out.
+  openaiImageModel: process.env.OPENAI_IMAGE_MODEL ?? "gpt-image-1.5",
+  // Virtual try-on monthly image budget. Global cap bounds total spend; per-user
+  // cap distributes it. Adjustable via env. (OpenAI prepaid is the hard ceiling.)
+  tryOnGlobalCap: Number(process.env.TRYON_GLOBAL_CAP ?? 90),
+  tryOnUserCap: Number(process.env.TRYON_USER_CAP ?? 5),
   livescoreApiKey: process.env.LIVESCORE_API_KEY ?? "", // football-data.org token (optional)
 
   // Email (transactional). Without a key the mailer logs to the console (dev).

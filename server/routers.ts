@@ -664,6 +664,9 @@ Return JSON { recs: [{ team: string, productId: number }] }. Only include teams 
       };
     }),
 
+    // The user's generated try-on images (for the profile history).
+    history: protectedProcedure.query(({ ctx }) => db.getTryOnHistory(ctx.user.id)),
+
     generate: protectedProcedure
       .input(
         z.object({

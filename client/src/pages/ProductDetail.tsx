@@ -64,7 +64,13 @@ export default function ProductDetail() {
     );
   }
 
-  const sizes = product.sizes ? Object.keys(product.sizes) : ["XS", "S", "M", "L", "XL", "XXL"];
+  const SIZE_ORDER = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL", "2XL", "3XL", "4XL", "5XL", "6XL"];
+  const sizes = (product.sizes ? Object.keys(product.sizes) : ["XS", "S", "M", "L", "XL", "XXL"])
+    .slice()
+    .sort((a, b) => {
+      const ia = SIZE_ORDER.indexOf(a.toUpperCase()), ib = SIZE_ORDER.indexOf(b.toUpperCase());
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    });
   const tryOnOk = ["club_jerseys", "trainers", "boots", "track_suits", "training_kits", "gym_gear"].includes(product.category);
   const specs = [
     ["Material", product.material],

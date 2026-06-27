@@ -1,11 +1,10 @@
 import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Search, ShoppingCart, User, ArrowUpRight, Menu, X, ChevronDown, ShieldCheck } from "lucide-react";
+import { Search, ShoppingCart, User, ArrowUpRight, Menu, X, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
-import { useCategories } from "@/lib/categories";
 
-// Catalog is rendered first as a dropdown; these follow it.
+// Catalog is rendered first; these follow it.
 const NAV = [
   { label: "Size Advisor", href: "/size-advisor" },
   { label: "Livescore", href: "/livescore" },
@@ -43,12 +42,6 @@ export function TechNav() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { data: cartItems } = trpc.cart.list.useQuery(undefined, { enabled: isAuthenticated, refetchOnWindowFocus: false });
   const cartCount = (cartItems || []).reduce((n: number, it: any) => n + (it.quantity || 1), 0);
-  const { categories } = useCategories();
-  // "All products" first, then the live categories from the catalog.
-  const CATEGORIES = [
-    { value: "all", label: "All products", href: "/catalog" },
-    ...categories.map(c => ({ value: c.value, label: c.label, href: `/catalog?category=${c.value}` })),
-  ];
 
   return (
     <header className="sticky top-0 z-50 bg-paper border-b border-ink">
@@ -73,22 +66,13 @@ export function TechNav() {
 
           {/* nav links (desktop, centered) */}
           <div className="hidden md:flex flex-1 items-center justify-center gap-8">
-            {/* Catalog dropdown */}
-            <div className="relative group">
-              <Link
-                href="/catalog"
-                className={`flex items-center gap-1 text-[13px] font-bold uppercase tracking-wide transition-colors py-1 ${location.startsWith("/catalog") ? "text-signal" : "text-ink group-hover:text-signal"}`}
-              >
-                Catalog <ChevronDown className="w-3.5 h-3.5" />
-              </Link>
-              <div className="absolute left-1/2 -translate-x-1/2 top-full pt-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity z-50">
-                <div className="bg-paper border border-ink min-w-[200px] py-1 shadow-[6px_6px_0_rgba(0,0,0,0.12)]">
-                  {CATEGORIES.map(c => (
-                    <Link key={c.value} href={c.href} className="block px-4 py-2.5 text-sm font-bold hover:bg-ink hover:text-white transition-colors">{c.label}</Link>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <Link
+              href="/catalog"
+              className={`text-[13px] font-bold uppercase tracking-wide transition-colors relative py-1 ${location.startsWith("/catalog") ? "text-signal" : "text-ink hover:text-signal"}`}
+            >
+              Catalog
+              {location.startsWith("/catalog") && <span className="absolute -bottom-0.5 left-0 w-full h-0.5 bg-signal" />}
+            </Link>
             {NAV.map(item => {
               const active = location.startsWith(item.href);
               return (
@@ -132,14 +116,9 @@ export function TechNav() {
       {menuOpen && (
         <div className="md:hidden border-t border-ink bg-paper">
           <div className="container py-2">
-            <Link href="/catalog" onClick={() => setMenuOpen(false)} className={`flex items-center justify-between py-3 text-sm font-bold uppercase tracking-wide ${location.startsWith("/catalog") ? "text-signal" : "text-ink"}`}>
+            <Link href="/catalog" onClick={() => setMenuOpen(false)} className={`flex items-center justify-between py-3 text-sm font-bold uppercase tracking-wide border-b border-ink/10 ${location.startsWith("/catalog") ? "text-signal" : "text-ink"}`}>
               Catalog <ArrowUpRight className="w-4 h-4" />
             </Link>
-            <div className="flex flex-wrap gap-2 pb-3 border-b border-ink/10">
-              {CATEGORIES.slice(1).map(c => (
-                <Link key={c.value} href={c.href} onClick={() => setMenuOpen(false)} className="px-3 py-1.5 border border-ink/15 text-xs font-bold uppercase tracking-wide hover:border-ink">{c.label}</Link>
-              ))}
-            </div>
             {NAV.map(item => {
               const active = location.startsWith(item.href);
               return (

@@ -1,4 +1,4 @@
-import { eq, and, inArray, notInArray, desc, gt, gte, sql } from "drizzle-orm";
+import { eq, and, inArray, notInArray, desc, gt, gte, isNotNull, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
 import { InsertUser, InsertProduct, users, products, cartItems, orders, chatMessages, searchHistory, reviews, supportMessages, passwordResetTokens, matchHistory, tryOnUsage } from "../drizzle/schema";
@@ -362,6 +362,26 @@ export async function recordTryOn(userId: number, productId: number, size: strin
   const db = await getDb();
   if (!db) return;
   await db.insert(tryOnUsage).values({ userId, productId, size, resultUrl });
+}
+
+// A user's generated try-on images, newest first, with product info for links.
+export async function getTryOnHistory(userId: number, limit = 24) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    id: tryOnUsage.id,
+    productId: tryOnUsage.productId,
+    size: tryOnUsage.size,
+    resultUrl: tryOnUsage.resultUrl,
+    createdAt: tryOnUsage.createdAt,
+    productName: products.name,
+    productImage: products.imageUrl,
+  })
+    .from(tryOnUsage)
+    .leftJoin(products, eq(tryOnUsage.productId, products.id))
+    .where(and(eq(tryOnUsage.userId, userId), isNotNull(tryOnUsage.resultUrl)))
+    .orderBy(desc(tryOnUsage.id))
+    .limit(limit);
 }
 
 // --- Match history: persist finished matches ~12h for the Livescore History ---

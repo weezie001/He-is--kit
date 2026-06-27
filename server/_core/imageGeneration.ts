@@ -101,8 +101,8 @@ export async function generateImage(
   };
 }
 
-// ---- OpenAI gpt-image-1 -----------------------------------------------------
-const OPENAI_IMAGE_MODEL = "gpt-image-1";
+// ---- OpenAI image model (gpt-image-1.5 by default) --------------------------
+const OPENAI_IMAGE_MODEL = ENV.openaiImageModel || "gpt-image-1.5";
 
 function extFromMime(m: string): string {
   if (/png/i.test(m)) return "png";

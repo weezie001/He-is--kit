@@ -22,6 +22,7 @@ export default function ProfileDashboard({ profile, onRetake }: { profile: Profi
   const { data: orders } = trpc.orders.list.useQuery();
   const { data: recommended } = trpc.products.list.useQuery({ style: profile.stylePreference || undefined, limit: 60 });
   const { data: allProducts } = trpc.products.list.useQuery({ limit: 100 });
+  const { data: tryOnHistory } = trpc.tryOn.history.useQuery(undefined, { enabled: !!user });
   const [showCancelled, setShowCancelled] = useState(false);
   const [recPage, setRecPage] = useState(0);
 
@@ -202,6 +203,23 @@ export default function ProfileDashboard({ profile, onRetake }: { profile: Profi
           <h2 className="display text-3xl mb-5">Your wishlist</h2>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
             {wishlist.map((p: any) => <ProductCard key={p.id} product={p} />)}
+          </div>
+        </section>
+      )}
+
+      {/* try-on history — links back to the product */}
+      {tryOnHistory && tryOnHistory.length > 0 && (
+        <section className="mb-14">
+          <h2 className="display text-3xl mb-5">Your try-ons</h2>
+          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+            {tryOnHistory.map((t: any) => (
+              <Link key={t.id} href={`/product/${t.productId}`} className="group block">
+                <div className="aspect-square bg-secondary border border-ink/15 overflow-hidden">
+                  <img src={t.resultUrl} alt={t.productName || "try-on"} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                </div>
+                <p className="tech-label mt-1 truncate normal-case tracking-normal font-medium">{t.productName || "Item"}{t.size ? ` · ${t.size}` : ""}</p>
+              </Link>
+            ))}
           </div>
         </section>
       )}
