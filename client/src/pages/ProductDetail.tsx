@@ -8,6 +8,7 @@ import { sizesForCategory, canTryOn } from "@shared/const";
 import { toast } from "sonner";
 import Layout from "@/components/Layout";
 import VirtualTryOn from "@/components/VirtualTryOn";
+import ProductGallery from "@/components/ProductGallery";
 import Reviews from "@/components/Reviews";
 import CatalogContinues from "@/components/CatalogContinues";
 import { TechLabel, Tag } from "@/components/tech";
@@ -87,6 +88,15 @@ export default function ProductDetail() {
     ["Team", product.team],
   ].filter(([, v]) => v);
 
+  // All images for the gallery: imageUrls already includes the primary; fall
+  // back to the single primary. Deduped, primary first.
+  const galleryImages = (() => {
+    const arr = (Array.isArray(product.imageUrls) ? (product.imageUrls as string[]) : []).filter(Boolean);
+    const list = arr.length ? arr : [product.imageUrl].filter(Boolean);
+    if (product.imageUrl && !list.includes(product.imageUrl)) list.unshift(product.imageUrl);
+    return Array.from(new Set(list));
+  })();
+
   return (
     <Layout>
       <div className="container py-6">
@@ -96,10 +106,10 @@ export default function ProductDetail() {
       </div>
 
       <div className="container pb-16 grid lg:grid-cols-2 gap-10 lg:gap-16">
-        {/* image */}
-        <div className="relative bg-secondary aspect-square overflow-hidden">
-          <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
-          {product.featured && <div className="absolute top-4 left-4"><Tag variant="signal">Featured</Tag></div>}
+        {/* image gallery — auto-sliding when the item has multiple images */}
+        <div className="relative">
+          <ProductGallery images={galleryImages} alt={product.name} />
+          {product.featured && <div className="absolute top-4 left-4 z-10"><Tag variant="signal">Featured</Tag></div>}
         </div>
 
         {/* info */}
