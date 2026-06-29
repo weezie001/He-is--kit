@@ -3,6 +3,7 @@ import { Link, useRoute, useSearch } from "wouter";
 import { ArrowUpRight, Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
+import { LAUNCH_AT_MS } from "@shared/const";
 
 const TAGS = ["AI TRY-ON", "300+ ATHLETES", "FW2016 DROP", "FREE RETURNS"];
 
@@ -15,6 +16,7 @@ const OAUTH_ERRORS: Record<string, string> = {
   google_profile: "Couldn't read your Google profile. Please try again.",
   google_user: "Couldn't set up your account. Please try again.",
   google_email_in_use: "That email already has a password account here. Please sign in with your email and password.",
+  launch_not_open: "New accounts open at launch — 8:00 PM. Set a reminder and come back!",
   google_failed: "Couldn't complete Google sign-in. Please try again.",
 };
 
@@ -37,6 +39,7 @@ export default function Login() {
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const utils = trpc.useUtils();
   const signup = mode === "signup";
+  const preLaunch = Date.now() < LAUNCH_AT_MS; // new accounts open at launch
   const { data: providers } = trpc.auth.providers.useQuery();
   const search = useSearch();
 
@@ -106,9 +109,15 @@ export default function Login() {
         <div className="w-full max-w-sm">
           <span className="tech-label text-signal">{signup ? "New here" : "Welcome back"}</span>
           <h2 className="display text-4xl mb-1 mt-1">{signup ? "Create account" : "Sign in"}</h2>
-          <p className="text-sm text-muted-foreground font-medium mb-8">
+          <p className="text-sm text-muted-foreground font-medium mb-6">
             {signup ? "Join HEIS KITS in seconds." : "Pick up where you left off."}
           </p>
+
+          {signup && preLaunch && (
+            <div className="mb-6 border-2 border-signal/40 bg-signal/5 p-3 text-sm font-medium">
+              🚀 New accounts open at <b>launch — 8:00 PM</b>. Browse now and come back, or set a reminder from the launch popup.
+            </div>
+          )}
 
           <form onSubmit={onSubmit} className="space-y-3">
             {signup && (

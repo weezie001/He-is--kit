@@ -10,7 +10,7 @@
 import crypto from "crypto";
 import type { Express, Request, Response } from "express";
 import { parse as parseCookieHeader } from "cookie";
-import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
+import { COOKIE_NAME, ONE_YEAR_MS, LAUNCH_AT_MS } from "@shared/const";
 import * as db from "../db";
 import { ENV } from "./env";
 import { sdk } from "./sdk";
@@ -125,6 +125,10 @@ export function registerGoogleAuthRoutes(app: Express) {
           if (existing.passwordHash) return fail("google_email_in_use");
           user = existing;
         }
+      }
+      // Launch gate — block brand-new accounts before launch (owner exempt).
+      if (!user && Date.now() < LAUNCH_AT_MS && email !== ENV.ownerEmail) {
+        return fail("launch_not_open");
       }
       if (!user) {
         await db.upsertUser({

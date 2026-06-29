@@ -1,4 +1,4 @@
-import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
+import { COOKIE_NAME, ONE_YEAR_MS, LAUNCH_AT_MS, LAUNCH_PROMO_BUYERS } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "./_core/trpc";
@@ -212,6 +212,11 @@ export const appRouter = router({
       }))
       .mutation(async ({ ctx, input }) => {
         const email = input.email.toLowerCase().trim();
+        // Launch gate — new accounts open at launch (the owner is exempt so they
+        // can manage the store beforehand).
+        if (Date.now() < LAUNCH_AT_MS && email !== ENV.ownerEmail) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "New accounts open at launch — 8:00 PM. Set a reminder and come back!" });
+        }
         const existing = await db.getUserByEmail(email);
         if (existing) {
           throw new TRPCError({ code: "CONFLICT", message: "An account with this email already exists" });
@@ -537,6 +542,19 @@ export const appRouter = router({
   }),
 
   // Live football scores + fixtures for the homepage ticker
+  // Launch promo — drives the countdown overlay + post-launch promo ticker.
+  launch: router({
+    status: publicProcedure.query(async () => {
+      const buyers = await db.countDistinctBuyersSince(LAUNCH_AT_MS);
+      return {
+        launchAtMs: LAUNCH_AT_MS,
+        buyers,
+        promoActive: Date.now() >= LAUNCH_AT_MS && buyers < LAUNCH_PROMO_BUYERS,
+        promoTarget: LAUNCH_PROMO_BUYERS,
+      };
+    }),
+  }),
+
   matches: router({
     ticker: publicProcedure.query(() => getMatchTicker()),
 

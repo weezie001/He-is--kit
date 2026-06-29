@@ -6,6 +6,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { Sparkles, Upload, Loader2, Download } from "lucide-react";
 import { toast } from "sonner";
 import { Tag } from "@/components/tech";
+import Lightbox from "@/components/Lightbox";
 
 // Mirrors the server: try-on is only for wearable apparel/footwear.
 const TRYON_CATEGORIES = new Set(["club_jerseys", "trainers", "boots", "track_suits", "training_kits", "gym_gear"]);
@@ -27,6 +28,7 @@ export default function VirtualTryOn({
   const [preview, setPreview] = useState<string | null>(null);
   const [userImage, setUserImage] = useState<{ b64Json: string; mimeType: string } | null>(null);
   const [size, setSize] = useState<string>(defaultSize || "");
+  const [lightbox, setLightbox] = useState<string | null>(null);
 
   const { data: quota } = trpc.tryOn.quota.useQuery(undefined, { enabled: isAuthenticated });
 
@@ -155,7 +157,9 @@ export default function VirtualTryOn({
                     <p className="tech-label">Compositing your fit…</p>
                   </div>
                 ) : resultUrl ? (
-                  <img src={resultUrl} alt="try-on result" className="w-full h-full object-contain bg-white" />
+                  <button type="button" onClick={() => setLightbox(resultUrl)} title="View full screen" className="w-full h-full cursor-zoom-in">
+                    <img src={resultUrl} alt="try-on result" className="w-full h-full object-contain bg-white" />
+                  </button>
                 ) : (
                   <p className="tech-label text-muted-foreground px-4 text-center">Your try-on will appear here</p>
                 )}
@@ -163,13 +167,14 @@ export default function VirtualTryOn({
               {resultUrl && (
                 <div className="flex items-center justify-between gap-3 mt-3">
                   <button onClick={() => download(resultUrl)} className="btn btn-outline !py-2"><Download className="w-4 h-4" /> Download</button>
-                  <span className="text-[11px] text-muted-foreground font-medium">AI preview · fit and colours may vary</span>
+                  <span className="text-[11px] text-muted-foreground font-medium">Tap to enlarge · fit &amp; colours may vary</span>
                 </div>
               )}
             </div>
           </div>
         )}
       </div>
+      {lightbox && <Lightbox src={lightbox} alt="try-on result" onClose={() => setLightbox(null)} />}
     </section>
   );
 }

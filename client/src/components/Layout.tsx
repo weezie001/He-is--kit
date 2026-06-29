@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { Search, ShoppingCart, User, ArrowUpRight, Menu, X, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
+import LaunchOverlay from "@/components/LaunchOverlay";
 
 // Catalog is rendered first; these follow it.
 const NAV = [
@@ -20,16 +21,22 @@ const TICKER = [
 ];
 
 function Ticker() {
+  // After launch, show the promo until the first N customers have bought.
+  const { data: launch } = trpc.launch.status.useQuery(undefined, { refetchInterval: 60_000, staleTime: 30_000 });
+  const promo = !!launch?.promoActive;
+  const items = promo
+    ? ["🎁 FREE MYSTERY GIFT", `FIRST ${launch?.promoTarget ?? 3} CUSTOMERS GET A FREE GIFT`, "SHOP NOW — WHILE THEY LAST"]
+    : TICKER;
   const row = (
     <span className="text-[12px] font-bold tracking-[0.16em] uppercase">
-      {TICKER.flatMap((t, i) => [
+      {items.flatMap((t, i) => [
         <span key={`t${i}`} className="px-5">{t}</span>,
-        <span key={`d${i}`} className="text-signal" aria-hidden>✸</span>,
+        <span key={`d${i}`} className={promo ? "text-white" : "text-signal"} aria-hidden>✸</span>,
       ])}
     </span>
   );
   return (
-    <div className="surface-dark marquee py-2">
+    <div className={`marquee py-2 ${promo ? "bg-signal text-white" : "surface-dark"}`}>
       <div className="marquee__track">{row}{row}</div>
     </div>
   );
@@ -203,6 +210,7 @@ function FooterCol({ title, links }: { title: string; links: [string, string][] 
 export default function Layout({ children, footer = true }: { children: ReactNode; footer?: boolean }) {
   return (
     <div className="min-h-dvh bg-paper text-ink flex flex-col">
+      <LaunchOverlay />
       <TechNav />
       <main className="flex-1">{children}</main>
       {footer && <TechFooter />}

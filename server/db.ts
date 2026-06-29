@@ -346,6 +346,16 @@ export async function getTryOnUsageThisMonth(userId: number): Promise<{ global: 
   return { global: Number(g[0]?.c || 0), user: Number(u[0]?.c || 0) };
 }
 
+// Distinct customers who completed a purchase since a given time (launch promo).
+export async function countDistinctBuyersSince(sinceMs: number): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+  const rows = await db.select({ c: sql<number>`count(distinct ${orders.userId})` })
+    .from(orders)
+    .where(and(gte(orders.createdAt, new Date(sinceMs)), eq(orders.paymentStatus, "completed")));
+  return Number(rows[0]?.c || 0);
+}
+
 // Cached result for an exact (user, product, size) — so it generates only once.
 export async function getCachedTryOn(userId: number, productId: number, size: string): Promise<string | null> {
   const db = await getDb();
