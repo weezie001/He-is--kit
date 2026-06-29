@@ -6,6 +6,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { useWishlistIds } from "@/lib/wishlist";
 import ProductCard from "@/components/ProductCard";
 import OrderTracking from "@/components/OrderTracking";
+import Lightbox from "@/components/Lightbox";
 import { TechLabel } from "@/components/tech";
 
 type Profile = {
@@ -25,6 +26,7 @@ export default function ProfileDashboard({ profile, onRetake }: { profile: Profi
   const { data: tryOnHistory } = trpc.tryOn.history.useQuery(undefined, { enabled: !!user });
   const [showCancelled, setShowCancelled] = useState(false);
   const [recPage, setRecPage] = useState(0);
+  const [tryOnView, setTryOnView] = useState<{ src: string; href: string; name: string } | null>(null);
 
   const wishlist = (allProducts || []).filter((p: any) => wishIds.includes(p.id));
   const orderCount = orders?.length || 0;
@@ -207,18 +209,25 @@ export default function ProfileDashboard({ profile, onRetake }: { profile: Profi
         </section>
       )}
 
-      {/* try-on history — links back to the product */}
+      {/* try-on history — click the image to view full screen, the name to open the item */}
       {tryOnHistory && tryOnHistory.length > 0 && (
         <section className="mb-14">
           <h2 className="display text-3xl mb-5">Your try-ons</h2>
           <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
             {tryOnHistory.map((t: any) => (
-              <Link key={t.id} href={`/product/${t.productId}`} className="group block">
-                <div className="aspect-square bg-secondary border border-ink/15 overflow-hidden">
-                  <img src={t.resultUrl} alt={t.productName || "try-on"} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                </div>
-                <p className="tech-label mt-1 truncate normal-case tracking-normal font-medium">{t.productName || "Item"}{t.size ? ` · ${t.size}` : ""}</p>
-              </Link>
+              <div key={t.id} className="group">
+                <button
+                  type="button"
+                  onClick={() => setTryOnView({ src: t.resultUrl, href: `/product/${t.productId}`, name: t.productName || "Item" })}
+                  title="View full screen"
+                  className="block w-full aspect-[3/4] bg-secondary border border-ink/15 overflow-hidden cursor-zoom-in"
+                >
+                  <img src={t.resultUrl} alt={t.productName || "try-on"} className="w-full h-full object-contain bg-white group-hover:scale-105 transition-transform" />
+                </button>
+                <Link href={`/product/${t.productId}`} className="tech-label mt-1 block truncate normal-case tracking-normal font-medium hover:text-signal">
+                  {t.productName || "Item"}{t.size ? ` · ${t.size}` : ""}
+                </Link>
+              </div>
             ))}
           </div>
         </section>
@@ -244,6 +253,15 @@ export default function ProfileDashboard({ profile, onRetake }: { profile: Profi
         </section>
       )}
 
+      {tryOnView && (
+        <Lightbox
+          src={tryOnView.src}
+          alt={tryOnView.name}
+          href={tryOnView.href}
+          actionLabel="View product"
+          onClose={() => setTryOnView(null)}
+        />
+      )}
     </div>
   );
 }

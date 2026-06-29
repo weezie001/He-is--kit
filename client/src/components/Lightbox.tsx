@@ -1,8 +1,22 @@
 import { useEffect } from "react";
-import { X } from "lucide-react";
+import { Link } from "wouter";
+import { X, ArrowUpRight } from "lucide-react";
 
 // Full-screen image viewer. Click the backdrop, the ✕, or press Esc to close.
-export default function Lightbox({ src, alt, onClose }: { src: string; alt?: string; onClose: () => void }) {
+// Optionally shows an action button (e.g. "View product") that links elsewhere.
+export default function Lightbox({
+  src,
+  alt,
+  onClose,
+  href,
+  actionLabel = "View product",
+}: {
+  src: string;
+  alt?: string;
+  onClose: () => void;
+  href?: string;
+  actionLabel?: string;
+}) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", onKey);
@@ -15,7 +29,14 @@ export default function Lightbox({ src, alt, onClose }: { src: string; alt?: str
       <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 grid place-items-center w-11 h-11 bg-white/10 hover:bg-white/25 text-white rounded-full transition-colors">
         <X className="w-5 h-5" />
       </button>
-      <img src={src} alt={alt || ""} onClick={e => e.stopPropagation()} className="max-w-full max-h-[90vh] object-contain cursor-default select-none" />
+      <div className="flex flex-col items-center gap-4 cursor-default" onClick={e => e.stopPropagation()}>
+        <img src={src} alt={alt || ""} className="max-w-full max-h-[80vh] object-contain select-none" />
+        {href && (
+          <Link href={href} onClick={onClose} className="btn btn-paper">
+            {actionLabel} <ArrowUpRight className="w-4 h-4" />
+          </Link>
+        )}
+      </div>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { toast } from "sonner";
 import Layout from "@/components/Layout";
 import WishlistRow from "@/components/WishlistRow";
+import CatalogContinues from "@/components/CatalogContinues";
 import ProductCard from "@/components/ProductCard";
 import { TechLabel } from "@/components/tech";
 
@@ -41,7 +42,9 @@ export default function Cart() {
     return (
       <Layout>
         <EmptyState title="Your cart is empty" sub="Explore the lineup and add some gear." cta={{ label: "Shop the catalog", href: "/catalog" }} />
-        <div className="pb-16"><WishlistRow /></div>
+        <WishlistRow />
+        <CatalogContinues heading="Continue shopping" />
+        <div className="pb-16" />
       </Layout>
     );
   }
@@ -114,7 +117,11 @@ export default function Cart() {
         </section>
       )}
 
-      <div className="pb-16"><WishlistRow /></div>
+      <WishlistRow />
+
+      {/* Catalog continues under the wishlist */}
+      <CatalogContinues heading="Continue shopping" />
+      <div className="pb-16" />
     </Layout>
   );
 }

@@ -6,6 +6,7 @@ import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useWishlist } from "@/lib/wishlist";
 import { labelizeCategory } from "@/lib/categories";
+import { sizesForCategory } from "@shared/const";
 import { Tag } from "@/components/tech";
 
 type Product = {
@@ -36,7 +37,9 @@ export default function ProductCard({ product }: { product: Product; index?: num
     onError: e => toast.error(e.message || "Could not add to cart"),
   });
 
-  const defaultSize = product.sizes ? Object.keys(product.sizes)[0] : "M";
+  // Quick-add picks the first size for the category (M for clothes, 41 for
+  // footwear, "One Size" otherwise) — matches the product page's options.
+  const defaultSize = sizesForCategory(product.category)[0] || "One Size";
 
   const handleAdd = async (e: React.MouseEvent) => {
     e.preventDefault();

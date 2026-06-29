@@ -1,12 +1,15 @@
 import { useState } from "react";
 import { useRoute, Link } from "wouter";
 import { trpc } from "@/lib/trpc";
-import { ShoppingCart, ChevronLeft, AlertCircle, Minus, Plus, ArrowUpRight } from "lucide-react";
+import { ShoppingCart, ChevronLeft, AlertCircle, Minus, Plus, ArrowUpRight, Heart } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useWishlist } from "@/lib/wishlist";
+import { sizesForCategory } from "@shared/const";
 import { toast } from "sonner";
 import Layout from "@/components/Layout";
 import VirtualTryOn from "@/components/VirtualTryOn";
 import Reviews from "@/components/Reviews";
+import CatalogContinues from "@/components/CatalogContinues";
 import { TechLabel, Tag } from "@/components/tech";
 
 export default function ProductDetail() {
@@ -20,6 +23,7 @@ export default function ProductDetail() {
     { id: parseInt(params?.id || "0") },
     { enabled: !!params?.id }
   );
+  const { wished, toggle } = useWishlist(product?.id ?? 0);
 
   const addToCartMutation = trpc.cart.add.useMutation({
     onSuccess: () => {
@@ -31,11 +35,18 @@ export default function ProductDetail() {
   });
 
   const handleAddToCart = async () => {
-    if (!selectedSize) return toast.error("Select a size first");
+    if (!product) return;
+    const opts = sizesForCategory(product.category);
+    if (opts.length > 0 && !selectedSize) return toast.error("Select a size first");
     if (!isAuthenticated) return toast.error("Please sign in to add items");
     setIsAdding(true);
-    await addToCartMutation.mutateAsync({ productId: product!.id, size: selectedSize, quantity });
+    await addToCartMutation.mutateAsync({ productId: product.id, size: opts.length > 0 ? selectedSize : "One Size", quantity });
     setIsAdding(false);
+  };
+
+  const handleWishlist = () => {
+    toggle();
+    toast.message(wished ? "Removed from wishlist" : "Saved to wishlist");
   };
 
   if (isLoading) {
@@ -64,13 +75,10 @@ export default function ProductDetail() {
     );
   }
 
-  const SIZE_ORDER = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL", "2XL", "3XL", "4XL", "5XL", "6XL"];
-  const sizes = (product.sizes ? Object.keys(product.sizes) : ["XS", "S", "M", "L", "XL", "XXL"])
-    .slice()
-    .sort((a, b) => {
-      const ia = SIZE_ORDER.indexOf(a.toUpperCase()), ib = SIZE_ORDER.indexOf(b.toUpperCase());
-      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
-    });
+  // Size options are derived from the category: clothes → M/L/XL, footwear →
+  // 41-45, everything else → none (one-size, no selector).
+  const sizes = sizesForCategory(product.category);
+  const needsSize = sizes.length > 0;
   const tryOnOk = ["club_jerseys", "trainers", "boots", "track_suits", "training_kits", "gym_gear"].includes(product.category);
   const specs = [
     ["Material", product.material],
@@ -113,33 +121,35 @@ export default function ProductDetail() {
             <p className="text-muted-foreground font-medium mt-5 leading-relaxed max-w-lg">{product.description}</p>
           )}
 
-          {/* size */}
-          <div className="mt-8">
-            <div className="flex items-center justify-between mb-3">
-              <TechLabel ink>Select size</TechLabel>
-              <Link href="/size-advisor" className="tech-label text-signal inline-flex items-center gap-1">
-                Size advisor <ArrowUpRight className="w-3 h-3" />
-              </Link>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {sizes.map((size: string) => (
-                <button
-                  key={size}
-                  onClick={() => setSelectedSize(size)}
-                  className={`min-w-[3.5rem] py-3 px-4 font-bold border-2 transition-colors ${
-                    selectedSize === size ? "border-ink surface-dark" : "border-ink/15 hover:border-ink"
-                  }`}
-                >
-                  {size}
-                </button>
-              ))}
-            </div>
-            {product.stock === 0 && (
-              <div className="flex items-center gap-2 text-destructive text-sm mt-3 font-bold">
-                <AlertCircle className="w-4 h-4" /> Out of stock
+          {/* size — only for wearable apparel (M/L/XL) and footwear (41-45) */}
+          {needsSize && (
+            <div className="mt-8">
+              <div className="flex items-center justify-between mb-3">
+                <TechLabel ink>Select size</TechLabel>
+                <Link href="/size-advisor" className="tech-label text-signal inline-flex items-center gap-1">
+                  Size advisor <ArrowUpRight className="w-3 h-3" />
+                </Link>
               </div>
-            )}
-          </div>
+              <div className="flex flex-wrap gap-2">
+                {sizes.map((size: string) => (
+                  <button
+                    key={size}
+                    onClick={() => setSelectedSize(size)}
+                    className={`min-w-[3.5rem] py-3 px-4 font-bold border-2 transition-colors ${
+                      selectedSize === size ? "border-ink surface-dark" : "border-ink/15 hover:border-ink"
+                    }`}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {product.stock === 0 && (
+            <div className="flex items-center gap-2 text-destructive text-sm mt-3 font-bold">
+              <AlertCircle className="w-4 h-4" /> Out of stock
+            </div>
+          )}
 
           {/* qty + add */}
           <div className="flex items-stretch gap-3 mt-8">
@@ -161,6 +171,16 @@ export default function ProductDetail() {
                 <ShoppingCart className="w-4 h-4" /> Sign in to shop
               </Link>
             )}
+            <button
+              type="button"
+              onClick={handleWishlist}
+              aria-label={wished ? "Remove from wishlist" : "Add to wishlist"}
+              title={wished ? "Remove from wishlist" : "Add to wishlist"}
+              className={`btn !px-4 shrink-0 ${wished ? "btn-signal" : "btn-outline"}`}
+            >
+              <Heart className={`w-4 h-4 ${wished ? "fill-current" : ""}`} />
+              <span className="hidden sm:inline">{wished ? "Saved" : "Wishlist"}</span>
+            </button>
           </div>
 
           {/* specs */}
@@ -184,16 +204,20 @@ export default function ProductDetail() {
           <VirtualTryOn
             productId={product.id}
             category={product.category}
-            sizes={sizes}
+            sizes={sizes.length ? sizes : ["One Size"]}
             defaultSize={selectedSize || undefined}
           />
         </div>
       )}
 
       {/* Reviews */}
-      <div className="container pb-20">
+      <div className="container pb-4">
         <Reviews productId={product.id} />
       </div>
+
+      {/* Keep shopping — the catalog continues right under the reviews */}
+      <CatalogContinues excludeId={product.id} />
+      <div className="pb-20" />
     </Layout>
   );
 }

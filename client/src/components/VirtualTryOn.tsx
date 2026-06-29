@@ -74,8 +74,6 @@ export default function VirtualTryOn({
   const resultUrl = tryOn.data?.image?.url;
   const outOfTries = quota && !quota.available && !resultUrl;
 
-  const isJersey = category === "club_jerseys";
-
   return (
     <section className="mt-12 border-2 border-ink max-w-3xl">
       <div className="flex items-center justify-between px-5 py-3 surface-dark">
@@ -150,7 +148,7 @@ export default function VirtualTryOn({
             {/* result */}
             <div>
               <div className="tech-label mb-2">Your try-on</div>
-              <div className={`${isJersey ? "aspect-square" : "aspect-[2/3]"} bg-secondary border border-ink/15 overflow-hidden grid place-items-center`}>
+              <div className="aspect-[3/4] bg-secondary border border-ink/15 overflow-hidden grid place-items-center">
                 {tryOn.isPending ? (
                   <div className="text-center text-muted-foreground">
                     <Loader2 className="w-7 h-7 animate-spin mx-auto mb-2" />

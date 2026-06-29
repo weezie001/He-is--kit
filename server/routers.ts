@@ -730,9 +730,10 @@ Return JSON { recs: [{ team: string, productId: number }] }. Only include teams 
           ? product.imageUrl
           : `${base}/${product.imageUrl.replace(/^\//, "")}`;
         const framing = isJersey
-          ? "Frame the shot from the head to the waist (upper body only), front-facing and centered."
-          : "Render a full-body, head-to-toe front-facing shot, centered.";
-        const imageSize = isJersey ? "1024x1024" : "1024x1536";
+          ? "Frame a vertical three-quarter portrait from the head to the upper thigh, front-facing and centered, so the jersey fills the frame without being cropped."
+          : "Render a full-body, head-to-toe front-facing portrait, centered.";
+        // Portrait (vertical) for every try-on so nothing is cropped to a square.
+        const imageSize = "1024x1536";
 
         const prompt = [
           "You are a professional fashion e-commerce try-on studio.",
