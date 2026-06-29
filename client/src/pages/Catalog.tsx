@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { fileToBase64 } from "@/lib/image";
 import { useCategories } from "@/lib/categories";
+import { shuffleProducts } from "@/lib/shuffle";
 import Layout from "@/components/Layout";
 import ProductCard from "@/components/ProductCard";
 import Reveal from "@/components/Reveal";
@@ -64,28 +65,30 @@ export default function Catalog() {
   }, []);
 
   const { data: products, isLoading } = trpc.products.list.useQuery({ category: selectedCategory });
+  // shuffle the catalog per page load (stable within the session)
+  const shuffled = useMemo(() => shuffleProducts((products as any[]) || []), [products]);
 
   // live client-side text filter on top of the category filter
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const list = (products as any[]) || [];
+    const list = shuffled;
     if (!q) return list;
     return list.filter(p =>
       `${p.name} ${p.category} ${p.team || ""} ${p.color || ""} ${p.style || ""}`.toLowerCase().includes(q)
     );
-  }, [products, query]);
+  }, [shuffled, query]);
 
   // typeahead suggestions (product matches) for the search dropdown
   const suggestions = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return [] as any[];
     const seen = new Set<string>(); const out: any[] = [];
-    for (const p of ((products as any[]) || [])) {
+    for (const p of shuffled) {
       if (out.length >= 6) break;
       if (!seen.has(p.name) && `${p.name} ${p.team || ""} ${p.category}`.toLowerCase().includes(q)) { seen.add(p.name); out.push(p); }
     }
     return out;
-  }, [products, query]);
+  }, [shuffled, query]);
 
   // Infinite scroll — render a growing slice, load more as the sentinel nears.
   const PAGE = 12;

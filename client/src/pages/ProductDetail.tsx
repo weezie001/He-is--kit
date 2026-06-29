@@ -4,7 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { ShoppingCart, ChevronLeft, AlertCircle, Minus, Plus, ArrowUpRight, Heart } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useWishlist } from "@/lib/wishlist";
-import { sizesForCategory } from "@shared/const";
+import { sizesForCategory, canTryOn } from "@shared/const";
 import { toast } from "sonner";
 import Layout from "@/components/Layout";
 import VirtualTryOn from "@/components/VirtualTryOn";
@@ -79,7 +79,7 @@ export default function ProductDetail() {
   // 41-45, everything else → none (one-size, no selector).
   const sizes = sizesForCategory(product.category);
   const needsSize = sizes.length > 0;
-  const tryOnOk = ["club_jerseys", "trainers", "boots", "track_suits", "training_kits", "gym_gear"].includes(product.category);
+  const tryOnOk = canTryOn(product.category);
   const specs = [
     ["Material", product.material],
     ["Color", product.color],

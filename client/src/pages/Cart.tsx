@@ -7,6 +7,7 @@ import Layout from "@/components/Layout";
 import WishlistRow from "@/components/WishlistRow";
 import CatalogContinues from "@/components/CatalogContinues";
 import ProductCard from "@/components/ProductCard";
+import { shuffleProducts } from "@/lib/shuffle";
 import { TechLabel } from "@/components/tech";
 
 const SHIPPING = 2500;
@@ -14,7 +15,7 @@ const SHIPPING = 2500;
 export default function Cart() {
   const { isAuthenticated } = useAuth();
   const { data: cartItems, isLoading, refetch } = trpc.cart.list.useQuery(undefined, { enabled: isAuthenticated });
-  const { data: moreProducts } = trpc.products.list.useQuery({ limit: 12 });
+  const { data: moreProducts } = trpc.products.list.useQuery({ limit: 100 });
 
   const removeFromCart = trpc.cart.remove.useMutation({
     onSuccess: () => { refetch(); toast.success("Item removed"); },
@@ -53,7 +54,7 @@ export default function Cart() {
   const total = subtotal + SHIPPING;
 
   const cartIds = new Set(cartItems.map((i: any) => i.product?.id));
-  const moreForYou = (moreProducts as any[] || []).filter(p => !cartIds.has(p.id)).slice(0, 8);
+  const moreForYou = shuffleProducts((moreProducts as any[]) || []).filter(p => !cartIds.has(p.id)).slice(0, 8);
 
   return (
     <Layout>

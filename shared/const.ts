@@ -36,6 +36,12 @@ export function sizesForCategory(category?: string | null): string[] {
   return k === "footwear" ? FOOTWEAR_SIZES : k === "apparel" ? APPAREL_SIZES : [];
 }
 
+/** Virtual try-on is available for wearable clothing only (jerseys incl.
+ *  country, shirts, shorts, tracksuits) — NOT footwear or one-size gear. */
+export function canTryOn(category?: string | null): boolean {
+  return sizeKind(category) === "apparel";
+}
+
 export const ONE_YEAR_MS = 1000 * 60 * 60 * 24 * 365;
 export const AXIOS_TIMEOUT_MS = 30_000;
 export const UNAUTHED_ERR_MSG = 'Please login (10001)';

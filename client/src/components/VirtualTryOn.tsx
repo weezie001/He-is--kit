@@ -7,9 +7,7 @@ import { Sparkles, Upload, Loader2, Download } from "lucide-react";
 import { toast } from "sonner";
 import { Tag } from "@/components/tech";
 import Lightbox from "@/components/Lightbox";
-
-// Mirrors the server: try-on is only for wearable apparel/footwear.
-const TRYON_CATEGORIES = new Set(["club_jerseys", "trainers", "boots", "track_suits", "training_kits", "gym_gear"]);
+import { canTryOn } from "@shared/const";
 
 export default function VirtualTryOn({
   productId,
@@ -37,8 +35,8 @@ export default function VirtualTryOn({
     onError: err => toast.error(err.message || "Try-on failed. Use a clear, well-lit full-body photo."),
   });
 
-  // Only render for clothing/footwear products.
-  if (!TRYON_CATEGORIES.has(category)) return null;
+  // Only render for wearable clothing (not footwear or one-size gear).
+  if (!canTryOn(category)) return null;
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

@@ -1,5 +1,7 @@
+import { useMemo } from "react";
 import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
+import { shuffleProducts } from "@/lib/shuffle";
 import {
   ArrowUpRight, ArrowRight, Sparkles, Search, MessageCircle, Ruler,
 } from "lucide-react";
@@ -21,9 +23,8 @@ const AI_MODULES = [
 
 export default function Home() {
   const { data: allProducts } = trpc.products.list.useQuery({ limit: 100 });
-  // ~20 products spread across the catalog for the featured grid (≈5 rows × 4).
-  const step = Math.max(1, Math.ceil((allProducts?.length || 20) / 20));
-  const featured = (allProducts || []).filter((_: any, i: number) => i % step === 0).slice(0, 20);
+  // 20 products for the featured grid (≈5 rows × 4), reshuffled each refresh.
+  const featured = useMemo(() => shuffleProducts((allProducts as any[]) || []).slice(0, 20), [allProducts]);
 
   return (
     <Layout>

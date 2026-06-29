@@ -1,4 +1,4 @@
-import { COOKIE_NAME, ONE_YEAR_MS, LAUNCH_AT_MS, LAUNCH_PROMO_BUYERS } from "@shared/const";
+import { COOKIE_NAME, ONE_YEAR_MS, LAUNCH_AT_MS, LAUNCH_PROMO_BUYERS, canTryOn } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "./_core/trpc";
@@ -77,10 +77,6 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   sports_bags: ["bag", "backpack", "duffel", "holdall"],
 };
 
-// Try-on is only for wearable apparel/footwear (not balls, bags, towels).
-const TRYON_CATEGORIES = new Set([
-  "club_jerseys", "trainers", "boots", "track_suits", "training_kits", "gym_gear",
-]);
 function sizeFit(size: string): string {
   const s = (size || "").toUpperCase();
   if (s === "XS" || s === "S") return "snug, fitted";
@@ -700,8 +696,8 @@ Return JSON { recs: [{ team: string, productId: number }] }. Only include teams 
         const product = await db.getProductById(input.productId);
         if (!product) throw new TRPCError({ code: "NOT_FOUND" });
 
-        // Try-on is only for wearable apparel/footwear.
-        if (!TRYON_CATEGORIES.has(product.category)) {
+        // Try-on is only for wearable clothing (not footwear or one-size gear).
+        if (!canTryOn(product.category)) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "Virtual try-on is available for clothing items only." });
         }
 

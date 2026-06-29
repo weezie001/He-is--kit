@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import { ArrowUpRight } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { shuffleProducts } from "@/lib/shuffle";
 import ProductCard from "@/components/ProductCard";
 import { TechLabel } from "@/components/tech";
 
@@ -16,7 +17,11 @@ export default function CatalogContinues({
   heading?: string;
 }) {
   const { data: products } = trpc.products.list.useQuery({ limit: 100 });
-  const list = ((products as any[]) || []).filter(p => p.id !== excludeId);
+  // shuffled per page load so "keep shopping" varies on each refresh
+  const list = useMemo(
+    () => shuffleProducts(((products as any[]) || []).filter(p => p.id !== excludeId)),
+    [products, excludeId],
+  );
 
   const PAGE = 12;
   const [visible, setVisible] = useState(PAGE);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import { Package, Heart, ShieldCheck, Ruler, Sparkles, Settings as SettingsIcon, RefreshCw, ChevronRight, ChevronDown, Gift } from "lucide-react";
 import { trpc } from "@/lib/trpc";
@@ -7,6 +7,7 @@ import { useWishlistIds } from "@/lib/wishlist";
 import ProductCard from "@/components/ProductCard";
 import OrderTracking from "@/components/OrderTracking";
 import Lightbox from "@/components/Lightbox";
+import { shuffleProducts } from "@/lib/shuffle";
 import { TechLabel } from "@/components/tech";
 
 type Profile = {
@@ -39,9 +40,9 @@ export default function ProfileDashboard({ profile, onRetake }: { profile: Profi
   const rewardUnlocked = paidCount > 0 && cycle === 0;
   const rewardRemaining = rewardUnlocked ? 0 : 5 - cycle;
 
-  // Recommended — 3 rows (12) per page with prev/next.
+  // Recommended — 3 rows (12) per page with prev/next, reshuffled each refresh.
   const REC_PER = 12;
-  const recList = (recommended as any[]) || [];
+  const recList = useMemo(() => shuffleProducts((recommended as any[]) || []), [recommended]);
   const recPages = Math.max(1, Math.ceil(recList.length / REC_PER));
   const recShown = recList.slice(recPage * REC_PER, recPage * REC_PER + REC_PER);
 
