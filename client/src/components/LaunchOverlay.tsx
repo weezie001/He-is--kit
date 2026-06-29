@@ -36,9 +36,8 @@ function icsHref() {
 
 export default function LaunchOverlay() {
   const [now, setNow] = useState(() => Date.now());
-  const [dismissed, setDismissed] = useState(() => {
-    try { return sessionStorage.getItem("launch_dismissed") === "1"; } catch { return false; }
-  });
+  // Not persisted — the overlay reappears on every page load/refresh.
+  const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -48,7 +47,7 @@ export default function LaunchOverlay() {
   const remaining = LAUNCH_AT_MS - now;
   if (remaining <= 0 || dismissed) return null; // only before launch, and dismissable
 
-  const dismiss = () => { try { sessionStorage.setItem("launch_dismissed", "1"); } catch {} setDismissed(true); };
+  const dismiss = () => setDismissed(true);
 
   const sec = Math.floor(remaining / 1000);
   const parts: [string, number][] = [["Hrs", Math.floor(sec / 3600)], ["Min", Math.floor((sec % 3600) / 60)], ["Sec", sec % 60]];

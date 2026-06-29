@@ -8,6 +8,7 @@ import ProductCard from "@/components/ProductCard";
 import MatchTicker from "@/components/MatchTicker";
 import MatchCenter from "@/components/MatchCenter";
 import Reveal from "@/components/Reveal";
+import LaunchCountdown from "@/components/LaunchCountdown";
 import { ProductGridSkeleton } from "@/components/Skeleton";
 import { TechLabel, Tag } from "@/components/tech";
 
@@ -53,6 +54,7 @@ export default function Home() {
                 <span className="w-px h-10 bg-border" />
                 <Stat value="4" label="AI tools" />
               </div>
+              <LaunchCountdown className="mt-8 self-start" />
             </div>
 
             {/* athlete cutout — slides in from the right; on mobile it sits ABOVE
