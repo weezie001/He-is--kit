@@ -111,41 +111,39 @@ function rankProducts(products: any[], terms: (string | undefined)[], categorySl
     .map(s => s.p);
 }
 
-// ---- Team → jersey colour heuristic (fallback for the live recommendations) --
-const TEAM_COLORS: Record<string, string> = {
-  // clubs
-  "manchester united": "red", "man united": "red", "liverpool": "red", "arsenal": "red",
-  "bayern": "red", "milan": "red", "atletico": "red", "roma": "red", "benfica": "red",
-  "manchester city": "sky", "man city": "sky", "napoli": "sky", "coventry": "sky",
-  "chelsea": "blue", "psg": "blue", "paris": "blue", "inter": "blue", "everton": "blue",
-  "barcelona": "navy", "villarreal": "navy",
-  "real madrid": "white", "madrid": "white", "tottenham": "white", "leeds": "white", "valencia": "white",
-  "juventus": "black", "newcastle": "black", "udinese": "black",
-  // nations
-  "england": "white", "switzerland": "red", "canada": "red", "morocco": "red", "denmark": "red",
-  "spain": "red", "portugal": "red", "belgium": "red", "wales": "red", "turkey": "red", "tunisia": "red",
-  "scotland": "navy", "italy": "blue", "france": "navy", "japan": "blue", "haiti": "blue", "bosnia": "blue",
-  "argentina": "sky", "uruguay": "sky", "greece": "sky",
-  "usa": "white", "germany": "white", "poland": "white", "serbia": "white", "qatar": "white",
-  "congo": "red", "nigeria": "white", "senegal": "white", "egypt": "red",
-};
+// Generic words that shouldn't drive a team↔product match on their own.
+const GENERIC_TEAM_WORDS = new Set(["club", "the", "national", "team", "women", "reserves", "youth", "ladies", "u21", "u23", "u20"]);
+const teamTokens = (name: string): string[] =>
+  name.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 2 && !GENERIC_TEAM_WORDS.has(w));
 
-// Map a colour to the nearest jersey colour we actually stock.
-const COLOR_FALLBACK: Record<string, string> = {
-  yellow: "red", orange: "red", maroon: "red", green: "navy", purple: "navy",
-};
-
-function teamColor(team: string): string | null {
-  const t = team.toLowerCase();
-  for (const [k, v] of Object.entries(TEAM_COLORS)) if (t.includes(k)) return v;
-  return null;
-}
-
-function pickJerseyByColor(color: string, jerseys: any[]): any | undefined {
-  const direct = jerseys.find(j => `${j.color || ""} ${j.name || ""}`.toLowerCase().includes(color));
-  if (direct) return direct;
-  const alt = COLOR_FALLBACK[color];
-  return alt ? jerseys.find(j => `${j.color || ""} ${j.name || ""}`.toLowerCase().includes(alt)) : undefined;
+// Pick the store jersey whose KEYWORDS (team, name, tags, description) best match
+// the playing team/nation — so we recommend exactly the right kit, not a colour
+// guess. Returns undefined when nothing matches confidently.
+function bestJerseyForTeam(teamName: string, jerseys: any[]): any | undefined {
+  const team = teamName.toLowerCase().trim();
+  if (!team) return undefined;
+  const tTokens = teamTokens(team);
+  let best: any | undefined, bestScore = 0;
+  for (const p of jerseys) {
+    const pTeam = (p.team || "").toLowerCase().trim();
+    let score = 0;
+    if (pTeam) {
+      if (pTeam === team) score = 100;                                  // exact team
+      else if (team.includes(pTeam) || pTeam.includes(team)) score = 80; // e.g. "arsenal fc" ⊃ "arsenal"
+      else {
+        const overlap = tTokens.filter(t => teamTokens(pTeam).includes(t)).length;
+        if (overlap) score = 40 + overlap * 10;                         // shared distinctive words
+      }
+    }
+    if (!score) {
+      // weak: a distinctive team word appears in the product's other keywords
+      const text = `${p.name || ""} ${Array.isArray(p.tags) ? p.tags.join(" ") : ""} ${p.description || ""}`.toLowerCase();
+      const hits = tTokens.filter(t => t.length > 3 && text.includes(t)).length;
+      if (hits) score = 10 + hits * 5;
+    }
+    if (score > bestScore) { bestScore = score; best = p; }
+  }
+  return bestScore >= 15 ? best : undefined;
 }
 
 const slimProduct = (p: any) => ({
@@ -558,8 +556,9 @@ export const appRouter = router({
     // Completed matches from the last 12 hours (persisted History section).
     history: publicProcedure.query(() => db.getRecentFinishedMatches(12)),
 
-    // Recommend the club jersey of every team playing today.
-    // Uses Gemini to map team → kit colour, with a heuristic fallback.
+    // Recommend the exact store kit for every team playing today, matched by
+    // KEYWORDS from the catalog items (team / name / tags), with a colour
+    // heuristic only as a fallback so the rail isn't left empty.
     recommended: publicProcedure.query(async () => {
       if (jerseyRecsCache && Date.now() - jerseyRecsCache.ts < 10 * 60 * 1000) return jerseyRecsCache.data;
 
@@ -569,7 +568,11 @@ export const appRouter = router({
         for (const t of [m.home, m.away]) if (t && !teams.includes(t)) teams.push(t);
       }
       const top = teams.slice(0, 12);
-      const jerseys = await db.getProducts("club_jerseys");
+
+      // Match against every jersey we stock — club AND country kits.
+      const clubJerseys = await db.getProducts("club_jerseys");
+      const countryJerseys = await db.getProducts("country_jerseys");
+      const jerseys = [...clubJerseys, ...countryJerseys];
       if (top.length === 0 || jerseys.length === 0) {
         jerseyRecsCache = { ts: Date.now(), data: [] };
         return [];
@@ -580,60 +583,10 @@ export const appRouter = router({
         if (product && !recs.find(x => x.product.id === product.id)) recs.push({ team, product });
       };
 
-      // Gemini mapping (the "smart" path)
-      try {
-        const jerseyList = jerseys.map((j: any) => `#${j.id} ${j.name} (${j.color})`).join("\n");
-        const resp = await invokeLLM({
-          messages: [
-            {
-              role: "system",
-              content: `Map each football team/nation to the catalog jersey whose colour best matches that club or nation's primary HOME kit.
-JERSEYS:
-${jerseyList}
-Return JSON { recs: [{ team: string, productId: number }] }. Only include teams you can confidently match by colour.`,
-            },
-            { role: "user", content: `Teams playing today: ${top.join(", ")}` },
-          ],
-          response_format: {
-            type: "json_schema",
-            json_schema: {
-              name: "jersey_recs",
-              strict: true,
-              schema: {
-                type: "object",
-                properties: {
-                  recs: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: { team: { type: "string" }, productId: { type: "number" } },
-                      required: ["team", "productId"],
-                      additionalProperties: false,
-                    },
-                  },
-                },
-                required: ["recs"],
-                additionalProperties: false,
-              },
-            },
-          },
-        });
-        const content = resp.choices[0].message.content;
-        const parsed = JSON.parse((typeof content === "string" ? content : JSON.stringify(content)) || "{}");
-        for (const r of parsed.recs || []) {
-          addRec(r.team, jerseys.find((j: any) => j.id === r.productId));
-        }
-      } catch {
-        // ignore — fall back to heuristic
-      }
-
-      // Heuristic fill — always, to cover teams Gemini missed
-      for (const team of top) {
-        if (recs.length >= 8) break;
-        const color = teamColor(team);
-        if (!color) continue;
-        addRec(team, pickJerseyByColor(color, jerseys));
-      }
+      // Keyword match — the exact kit for each team, from the store's item
+      // keywords. Teams we don't stock simply get no rec (no colour guessing),
+      // so every recommendation is the right kit for that team.
+      for (const team of top) addRec(team, bestJerseyForTeam(team, jerseys));
 
       const data = recs.slice(0, 8).map(r => ({ team: r.team, product: slimProduct(r.product) }));
       if (data.length > 0) jerseyRecsCache = { ts: Date.now(), data }; // don't cache empty
