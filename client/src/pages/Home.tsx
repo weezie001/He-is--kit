@@ -1,7 +1,5 @@
-import { useMemo } from "react";
 import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
-import { shuffleProducts } from "@/lib/shuffle";
 import {
   ArrowUpRight, ArrowRight, Sparkles, Search, MessageCircle, Ruler,
 } from "lucide-react";
@@ -22,9 +20,12 @@ const AI_MODULES = [
 ];
 
 export default function Home() {
-  const { data: allProducts } = trpc.products.list.useQuery({ limit: 100 });
-  // 20 products for the featured grid (≈5 rows × 4), reshuffled each refresh.
-  const featured = useMemo(() => shuffleProducts((allProducts as any[]) || []).slice(0, 20), [allProducts]);
+  // Featured Drops = only products the admin marks "Featured". Fixed order
+  // (no shuffle) so the section stays the same across refreshes.
+  const { data: featured, isLoading: featuredLoading } = trpc.products.featured.useQuery(undefined, {
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  });
 
   return (
     <Layout>
@@ -116,27 +117,29 @@ export default function Home() {
 
       <MatchTicker />
 
-      {/* ============ FEATURED — grid (no side-scroll), See more at the bottom ============ */}
-      <section className="py-16 lg:py-24">
-        <div className="container">
-          <div className="mb-8">
-            <TechLabel>The lineup</TechLabel>
-            <h2 className="display text-[clamp(2.5rem,6vw,5rem)] mt-2">Featured Drops</h2>
+      {/* ============ FEATURED — admin-curated, fixed order (no shuffle) ============ */}
+      {(featuredLoading || (featured && featured.length > 0)) && (
+        <section className="py-16 lg:py-24">
+          <div className="container">
+            <div className="mb-8">
+              <TechLabel>The lineup</TechLabel>
+              <h2 className="display text-[clamp(2.5rem,6vw,5rem)] mt-2">Featured Drops</h2>
+            </div>
+            {featuredLoading ? (
+              <ProductGridSkeleton count={8} />
+            ) : (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
+                  {featured!.map((p: any) => <ProductCard key={p.id} product={p} />)}
+                </div>
+                <div className="flex justify-center mt-10 lg:mt-12">
+                  <Link href="/catalog" className="btn btn-primary">See more <ArrowUpRight className="w-4 h-4" /></Link>
+                </div>
+              </>
+            )}
           </div>
-          {featured.length === 0 ? (
-            <ProductGridSkeleton count={8} />
-          ) : (
-            <>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
-                {featured.map((p: any) => <ProductCard key={p.id} product={p} />)}
-              </div>
-              <div className="flex justify-center mt-10 lg:mt-12">
-                <Link href="/catalog" className="btn btn-primary">See more <ArrowUpRight className="w-4 h-4" /></Link>
-              </div>
-            </>
-          )}
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ============ MATCH CENTER ============ */}
       <MatchCenter />

@@ -336,8 +336,9 @@ export const appRouter = router({
       }),
 
     featured: publicProcedure.query(async () => {
-      const allProducts = await db.getProducts(undefined, 100, undefined, undefined);
-      return allProducts.filter((p: any) => p.featured).slice(0, 6);
+      // Admin-curated homepage highlights (the "Featured" toggle). Stable order.
+      const allProducts = await db.getProducts(undefined, 200, undefined, undefined);
+      return allProducts.filter((p: any) => p.featured).slice(0, 24);
     }),
 
     // Fast keyword search for instant typeahead (no LLM).
