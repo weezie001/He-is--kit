@@ -39,7 +39,7 @@ function colorFromFile(file) {
 
 function sizesFor(kind) {
   // Clothes: M/L/XL only. Footwear: EU 41-45. Everything else: one size.
-  if (kind === "apparel") return { M: 25, L: 25, XL: 15 };
+  if (kind === "apparel") return { M: 25, L: 25, XL: 15, XXL: 10 };
   if (kind === "footwear") return { "41": 10, "42": 15, "43": 15, "44": 10, "45": 8 };
   return { "One Size": 40 };
 }

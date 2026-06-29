@@ -22,8 +22,8 @@ async function run() {
       let sizes = null;
       if (kind === "apparel") {
         const old = r.sizes && typeof r.sizes === "object" ? r.sizes : {};
-        // keep existing M/L/XL counts, drop other sizes, default if missing
-        sizes = { M: Number(old.M ?? 25), L: Number(old.L ?? 25), XL: Number(old.XL ?? 15) };
+        // keep existing M/L/XL/XXL counts, drop other sizes, default if missing
+        sizes = { M: Number(old.M ?? 25), L: Number(old.L ?? 25), XL: Number(old.XL ?? 15), XXL: Number(old.XXL ?? 10) };
         apparel++;
       } else if (kind === "footwear") {
         sizes = { ...FOOTWEAR_SIZES };

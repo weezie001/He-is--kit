@@ -7,7 +7,7 @@ export const LAUNCH_PROMO_BUYERS = 3;
 // ---- Sizing -----------------------------------------------------------------
 // Wearable apparel uses letter sizes; footwear uses EU number sizes; everything
 // else (balls, bags, towels) is one-size and shows no size selector.
-export const APPAREL_SIZES = ["M", "L", "XL"];
+export const APPAREL_SIZES = ["M", "L", "XL", "XXL"];
 export const FOOTWEAR_SIZES = ["41", "42", "43", "44", "45"];
 
 // Categories evolve (admin free-text slugs), so classify by keyword with an
