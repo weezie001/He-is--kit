@@ -8,6 +8,29 @@ HEIS KITS — an AI-powered football/sports apparel store.
 Stack: **React 19 + Vite + Tailwind v4 + wouter** (client) · **Express + tRPC v11** (server) · **Drizzle ORM + MySQL** (Aiven) · **Gemini** for AI · **football-data.org** for live scores.
 Single process: the Express server serves the Vite app (dev) and the API at `/api/trpc`.
 
+## ⚡ Latest state — 2026-06-29 (LAUNCH DAY) — read this first
+The store is **live in production at https://heiskits.com** (custom domain, apex + www, HTTPS) and **taking REAL payments**. Much of the body below is still accurate but predates these changes:
+- **Domain:** `heiskits.com` is primary; `heis-kits.vercel.app` still works.
+- **Payments — Flutterwave LIVE.** Live secret + public key + webhook secret hash set in Vercel; provider verified live. Webhook = `https://heiskits.com/api/payments/webhook`. ⚠️ Owner's **KYC** must be completed in the Flutterwave dashboard before sales are **withdrawable** (collection works without it).
+- **Email LIVE (Resend):** `heiskits.com` verified (DKIM/SPF/DMARC); `RESEND_API_KEY` + `MAIL_FROM=HEIS KITS <orders@heiskits.com>`, `ADMIN_NOTIFY_EMAIL=orders@heiskits.com`.
+- **Google sign-in LIVE:** `GOOGLE_CLIENT_ID/SECRET` set.
+- **Owner admin:** `OWNER_EMAIL=Shekwolohaggai@gmail.com` is auto-promoted to admin on sign-in (in `upsertUser`). All test users were deleted; **`admin@heiskits.com` kept as fallback — delete it once the owner confirms the Gmail admin works.**
+- **Virtual Try-On now runs on OpenAI `gpt-image-1.5`** (Gemini image billing couldn't be funded — Google rejected the Nigerian card; OpenAI accepted). `OPENAI_API_KEY` + `OPENAI_IMAGE_MODEL` set; `server/_core/imageGeneration.ts` uses `/v1/images/edits` (multipart) and prefers OpenAI → Gemini → forge. gpt-image-2 is sharper but ~80s (times out the function). Try-on is **clothing-only** (jerseys/trainers/gym), confirm-size-first, **white bg, head-to-waist for jerseys, face preserved, 4K, "HEIS KITS" watermark, downloadable**; **budget quota** `TRYON_USER_CAP=5`/`TRYON_GLOBAL_CAP=90` (env), cached per (user,product,size) in the **`tryOnUsage`** table; **try-on history** in profile; **full-screen Lightbox** on results. Function `maxDuration` bumped to 60s.
+- **Image search** also lives in the catalog now (icon before the search bar); the search bar has typeahead suggestions + recent-search history (localStorage); magnify moved to the right.
+- **Size Advisor v2:** mannequin body-types + **Chest/Shoulder/Length** measurement selectors + click-to-open size chart (`SIZE_CHART` in `pages/SizeAdvisor.tsx`).
+- **Nav:** Catalog category dropdown removed — plain Catalog · Size Advisor · Livescore · Expert · Support. Product sizes sorted XS→XXL.
+- **Home:** Featured Drops is now a **grid + "See more"** (the side-scroll carousel was replaced); shop-features after hero; hero parallax slide-in; **catalog has infinite scroll**.
+- **SEO:** OG/Twitter meta + `robots.txt` + dynamic **`/sitemap.xml`** (Express route, routed in `vercel.json`) + **Google Search Console verified** (HTML file in `client/public/google…html`). **Favicon** at `client/public/favicon.svg`.
+- **🚀 Launch system (tonight 8 PM WAT):** `shared/const.ts` → `LAUNCH_AT_MS = 2026-06-29T19:00:00Z`, `LAUNCH_PROMO_BUYERS = 3`. `LaunchOverlay` (poster `client/public/launch-poster.png` + live countdown + add-to-calendar .ics/Google + dismiss; **shows every refresh**) mounted in `Layout`; small persistent `LaunchCountdown` pill in the hero. **New-account signups (email + Google) are BLOCKED until `LAUNCH_AT_MS`** (`auth.register` + `googleOAuth.ts`; owner exempt). After launch the top ticker turns red with the free-mystery-gift promo until **3 distinct customers purchase** (`launch.status` + `db.countDistinctBuyersSince`). **⚠️ After the event, this is dead weight — retire it (or set `LAUNCH_AT_MS` to the past) once the promo's done.**
+- **🔒 Security:** the dev machine had a **NetSupport RAT + clipboard clipper** (found & removed; Defender clean). **Rotate keys exposed during that window** — DB password (highest) + the OpenAI key (was pasted in chat). Resend/Google/Gemini keys already rotated.
+
+### Real NEXT priorities
+1. **Move the DB off the Aiven free trial** (paid/non-expiring) — #1 risk now that real money flows (Gotcha #8).
+2. **Complete Flutterwave KYC** so sales are withdrawable, then do **one small real test purchase** to confirm end-to-end.
+3. **Rotate the DB password + OpenAI key** (malware follow-up).
+4. **Delete `admin@heiskits.com`** once the owner confirms Gmail admin access.
+5. **After 8 PM:** confirm overlay clears + signups open + promo ticker shows; later retire the launch code.
+
 ## Deployment (GitHub + Vercel)
 - **Source:** https://github.com/weezie001/He-is--kit (public, branch `main`). `origin` is set locally. ⚠️ `gh` is **not** authenticated in this env — pushes go through the user's machine (`git push`, via Git Credential Manager) or a token. The project has its **own** git repo (the parent `C:\Users\USER` is, separately, an accidental git repo — don't commit/push from there).
 - **Live:** https://heis-kits.vercel.app (Vercel project `heis-kits`, account `wisdomemmanuelenang-1142`). Production.
@@ -40,12 +63,12 @@ Single process: the Express server serves the Vite app (dev) and the API at `/ap
 - **Google OAuth (standalone "Continue with Google")** — `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET`. Create an OAuth 2.0 **Web application** client in the Google Cloud Console; **Authorized redirect URI** = `<origin>/api/auth/google/callback` (add both `https://heis-kits.vercel.app/...` and `http://localhost:3000/...`). Code in `server/_core/googleOAuth.ts` (auth-code flow, `state` CSRF cookie, account-linking by **verified** email, issues the same HS256 JWT session). Routes: `GET /api/auth/google` + `/api/auth/google/callback`. Absent keys ⇒ the button is hidden (`auth.providers` query returns `{google:false}`) and the route redirects to `/login?error=google_unavailable`. Independent of the Manus "HEIS ID" portal (still present).
 - **`ADMIN_NOTIFY_EMAIL`** = `Shekwolohaggai@gmail.com` (in `.env`) — the business inbox that receives new-order + new-signup + new-support-message notifications. (Only actually delivered once `RESEND_API_KEY` is set; logged to console until then.)
 - **`BLOB_READ_WRITE_TOKEN`** — auto-provisioned by the linked Vercel Blob store `heis-kits-uploads` (set in Vercel for all envs; mirrored to gitignored `.env.local` for local use). Enables Blob uploads; absent ⇒ local-disk fallback.
-- **OpenAI is NOT configured.** Virtual try-on stays on Gemini. `gpt-image-1` was evaluated (key valid, org verified) but the OpenAI account billing wasn't funded, so it was **not wired**. To switch later: add `OPENAI_API_KEY` + an OpenAI adapter in `server/_core/imageGeneration.ts` (store outputs in Blob).
+- **OpenAI IS configured** (since launch) — virtual try-on runs on `gpt-image-1.5` via `OPENAI_API_KEY` + `OPENAI_IMAGE_MODEL` (`server/_core/imageGeneration.ts`, `/v1/images/edits` multipart; prefers OpenAI → Gemini → forge). Outputs go through `storagePut` (Blob in prod). Prepaid balance is the hard spend ceiling; see the "Latest state" section above for the try-on quota/cache/watermark details.
 - Optional `APP_BASE_URL` — overrides the request-derived origin for payment callbacks / reset links.
 
 ## ⚠️ Gotchas (these cost real time — read them)
 1. **Gemini free tier = 20 requests/min.** Chat/search/try-on share it; under rapid testing it 429s and recovers in ~45s. Not a bug.
-2. **Gemini image generation (Virtual Try-On) needs billing enabled** — free tier limit is literally 0 for `gemini-2.5-flash-image`. Try-on is built + gated with a friendly "needs billing" message. (OpenAI `gpt-image-1` was evaluated as an alternative — works, org verified — but billing unfunded, so try-on stays on Gemini for now; fund Gemini or wire OpenAI to enable it.)
+2. **Virtual Try-On now runs on OpenAI `gpt-image-1.5`**, not Gemini (Gemini image gen needs paid billing — its free-tier limit is literally 0 — and Google rejected the owner's Nigerian card, so OpenAI was funded instead). Spend ceiling = the prepaid OpenAI balance; in-app quota `TRYON_USER_CAP=5`/`TRYON_GLOBAL_CAP=90` + per-(user,product,size) cache. gpt-image-2 is sharper but ~80s → times out the 60s function, so stay on 1.5.
 3. **Preview screenshots time out** (external Unsplash/product images + a dead analytics script keep the network busy). Use `preview_eval` DOM/computed-style checks and open in the real browser instead. `preview_click`+immediate `preview_eval` can race React — add a ~300ms wait.
 4. **WebM alpha (transparent hover video) does NOT encode** in this ffmpeg build (`alphaextract` confirms no alpha). That feature was reverted to static images — don't retry it here.
 5. **Dark mode**: token-flip in `.dark` (index.css). Intentionally-black sections use `.surface-dark` (fixed dark, identical in light mode). Buttons/field/tag use `var(--ink)/var(--paper)` (theme-robust). The runtime toggle works in REAL browsers; the preview headless browser has a `var()` re-resolution quirk that makes existing elements look stuck — verify dark mode by loading with `localStorage.theme='dark'` then reload, or just trust it.
@@ -86,18 +109,12 @@ Single process: the Express server serves the Vite app (dev) and the API at `/ap
 - The store owner is also auto-promoted on OAuth sign-in (`OWNER_OPEN_ID` in `.env`).
 - To grant admin to any email/password account: `node --import tsx scripts/make-admin.mjs <email>` (add `--demote` to revoke). Role is read fresh from the DB each request, so a page reload picks it up — no re-login needed.
 
-## NEXT TASK → Flutterwave (test) — VERIFIED working against test API
-**Flutterwave integration is built + verified** (provider preferred over Paystack; amounts normalised to Naira; init/verify/webhook all wired — typecheck + build green). Live test-API checks passed: `payments.config` → provider `flutterwave` + test public key; `payments.initialize` creates a PENDING order and returns a real hosted checkout link (`checkout-v2.dev-flutterwave.com/v3/hosted/pay/…`) with the amount in Naira; `payments.verify` reaches `verify_by_reference` and resolves an unpaid ref to `failed` without crashing. **Test keys are already in `.env`.** Remaining manual step: complete one payment on Flutterwave's hosted page with a test card (card → OTP) to exercise the success path + webhook. **To test:**
-1. Create a Flutterwave account → **switch to test mode** → *Settings → API Keys*: copy the **test** secret + public key.
-2. Put them in `.env` (`FLUTTERWAVE_SECRET_KEY` / `FLUTTERWAVE_PUBLIC_KEY`). For webhooks, set a **Secret hash** under *Settings → Webhooks* and copy it to `FLUTTERWAVE_SECRET_HASH`; set the webhook URL to `<base>/api/payments/webhook`.
-3. Restart the preview (server change), sign in, add to cart, checkout → you'll be redirected to Flutterwave's hosted page. Pay with a test card (e.g. `5531 8866 5214 2950`, exp any future, CVV `564`, OTP `12345`).
-4. To go live on Vercel later: `vercel env add FLUTTERWAVE_SECRET_KEY` etc. (use **live** keys), then `vercel deploy --prod`.
+## NEXT TASK — see "Latest state → Real NEXT priorities" at the top
+Payments/email/Google/try-on are all **LIVE** now (the old "Flutterwave test" task below is superseded — kept only as a record). The real to-do list is in the **Latest state** section: (1) move the DB off the Aiven free trial, (2) finish Flutterwave KYC + one real test purchase, (3) rotate the DB + OpenAI keys (malware), (4) delete `admin@heiskits.com`, (5) retire the launch code after the event.
 
-Likely follow-ups, in priority order:
-1. **Move the DB off the Aiven free trial** (paid/non-expiring) so the site can't go down when the trial powers off (see Gotcha #8).
-2. **Fund Gemini image billing** (or wire OpenAI `gpt-image-1`) to enable virtual try-on.
-3. Add live `FLUTTERWAVE_*` + `RESEND_API_KEY` in Vercel to turn payments/email from mock/console → real.
-4. Product-detail gallery using `imageUrls`; drag-to-reorder images; admin pagination/sorting as the catalog grows.
+History — Flutterwave was first verified against the **test** API (init returns a real hosted link; verify resolves unpaid refs to `failed`), then switched to **live** keys in Vercel for launch. Test cards (test mode only): `5531 8866 5214 2950`, exp any future, CVV `564`, OTP `12345`.
+
+Lower-priority follow-ups: product-detail gallery using `imageUrls`; drag-to-reorder images; admin pagination/sorting as the catalog grows.
 - Pushing to GitHub from this agent env needs the user's machine/token (gh unauthenticated).
 
 ## Tracking docs
