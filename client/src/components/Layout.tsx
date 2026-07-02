@@ -4,6 +4,7 @@ import { Search, ShoppingCart, User, ArrowUpRight, Menu, X, ShieldCheck } from "
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import LaunchOverlay from "@/components/LaunchOverlay";
+import WhatsAppChat from "@/components/WhatsAppChat";
 
 // Catalog is rendered first; these follow it.
 const NAV = [
@@ -214,6 +215,7 @@ export default function Layout({ children, footer = true }: { children: ReactNod
       <TechNav />
       <main className="flex-1">{children}</main>
       {footer && <TechFooter />}
+      <WhatsAppChat />
     </div>
   );
 }
