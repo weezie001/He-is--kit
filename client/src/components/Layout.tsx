@@ -22,22 +22,16 @@ const TICKER = [
 ];
 
 function Ticker() {
-  // After launch, show the promo until the first N customers have bought.
-  const { data: launch } = trpc.launch.status.useQuery(undefined, { refetchInterval: 60_000, staleTime: 30_000 });
-  const promo = !!launch?.promoActive;
-  const items = promo
-    ? ["🎁 FREE MYSTERY GIFT", `FIRST ${launch?.promoTarget ?? 3} CUSTOMERS GET A FREE GIFT`, "SHOP NOW — WHILE THEY LAST"]
-    : TICKER;
   const row = (
     <span className="text-[12px] font-bold tracking-[0.16em] uppercase">
-      {items.flatMap((t, i) => [
+      {TICKER.flatMap((t, i) => [
         <span key={`t${i}`} className="px-5">{t}</span>,
-        <span key={`d${i}`} className={promo ? "text-white" : "text-signal"} aria-hidden>✸</span>,
+        <span key={`d${i}`} className="text-signal" aria-hidden>✸</span>,
       ])}
     </span>
   );
   return (
-    <div className={`marquee py-2 ${promo ? "bg-signal text-white" : "surface-dark"}`}>
+    <div className="marquee py-2 surface-dark">
       <div className="marquee__track">{row}{row}</div>
     </div>
   );
